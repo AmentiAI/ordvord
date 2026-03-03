@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import LaserEyesWrapper from "@/providers/LaserEyesWrapper";
 
 export const metadata: Metadata = {
   title: "ORDVORD — Ordinal Battle Arena",
@@ -11,7 +12,9 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <LaserEyesWrapper>{children}</LaserEyesWrapper>
+      </body>
     </html>
   );
 }

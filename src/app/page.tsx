@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { useLaserEyes } from "@omnisat/lasereyes";
+import WalletConnect from "@/components/WalletConnect";
 
 const PARTICLES = Array.from({ length: 24 }, (_, i) => ({
   id: i,
@@ -24,6 +26,7 @@ const TICKER = [
 
 export default function Home() {
   const router = useRouter();
+  const { connected, address } = useLaserEyes();
   const [tickerIdx, setTickerIdx] = useState(0);
   const [count, setCount] = useState(0);
   const [entered, setEntered] = useState(false);
@@ -52,6 +55,11 @@ export default function Home() {
 
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden">
+      {/* Top-right wallet connect */}
+      <div className="absolute top-4 right-4 z-20">
+        <WalletConnect />
+      </div>
+
       {/* Background grid */}
       <div
         className="absolute inset-0 opacity-20"
@@ -182,9 +190,15 @@ export default function Home() {
             <div className="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity bg-white" />
           </button>
 
-          <p className="text-xs tracking-widest" style={{ color: "#334155" }}>
-            CONNECT WALLET TO USE YOUR OWN ORDINALS
-          </p>
+          {connected && address ? (
+            <p className="text-xs tracking-widest" style={{ color: "#22c55e" }}>
+              ✓ WALLET CONNECTED — YOUR ORDINALS WILL LOAD IN SELECTION
+            </p>
+          ) : (
+            <p className="text-xs tracking-widest" style={{ color: "#334155" }}>
+              CONNECT WALLET (TOP RIGHT) TO USE YOUR OWN ORDINALS
+            </p>
+          )}
         </motion.div>
 
         {/* Fighter emoji preview */}
