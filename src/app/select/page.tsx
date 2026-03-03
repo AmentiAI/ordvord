@@ -47,6 +47,8 @@ function inscriptionToOrdinal(ins: OrdiscanInscription): Ordinal {
     name: `Inscription #${ins.inscription_number.toLocaleString()}`,
     emoji: "🖼️",
     bgGradient: "from-purple-950 to-black",
+    contentUrl: ins.content_url,
+    contentType: ins.content_type,
     ...stats,
   };
 }

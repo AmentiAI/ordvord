@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, type JSX } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ORDINALS, type Ordinal } from "@/lib/mockData";
@@ -243,6 +243,24 @@ export default function LobbyPage() {
   );
 }
 
+function FighterAvatar({ fighter }: { fighter: Ordinal }): JSX.Element {
+  const [imgError, setImgError] = useState(false);
+  const isImage = fighter.contentType?.startsWith("image/");
+
+  if (fighter.contentUrl && isImage && !imgError) {
+    return (
+      <img
+        src={fighter.contentUrl}
+        alt={fighter.name}
+        className="w-full h-full object-contain rounded-lg float-anim"
+        style={{ filter: `drop-shadow(0 0 10px ${fighter.glowColor})` }}
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+  return <span className="text-5xl float-anim">{fighter.emoji}</span>;
+}
+
 function FighterCard({ fighter, label, align }: { fighter: Ordinal; label: string; align: "left" | "right" }) {
   return (
     <div className={`flex flex-col ${align === "right" ? "items-end" : "items-start"} gap-2 w-full`}>
@@ -262,10 +280,10 @@ function FighterCard({ fighter, label, align }: { fighter: Ordinal; label: strin
       >
         <div className={`flex items-center gap-4 ${align === "right" ? "flex-row-reverse" : ""}`}>
           <div
-            className="w-20 h-20 rounded-lg flex items-center justify-center text-5xl float-anim flex-shrink-0"
+            className="w-20 h-20 rounded-lg flex items-center justify-center flex-shrink-0"
             style={{ background: `${fighter.glowColor}15`, border: `1px solid ${fighter.glowColor}33` }}
           >
-            {fighter.emoji}
+            <FighterAvatar fighter={fighter} />
           </div>
           <div className={align === "right" ? "text-right" : ""}>
             <div className="font-black text-base" style={{ color: "#e2e8f0" }}>{fighter.name}</div>

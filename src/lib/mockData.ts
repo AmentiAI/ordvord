@@ -13,6 +13,9 @@ export interface Ordinal {
   emoji: string;
   bgGradient: string;
   glowColor: string;
+  // Real inscription fields (optional — absent for mock fighters)
+  contentUrl?: string;
+  contentType?: string;
 }
 
 export const ORDINALS: Ordinal[] = [

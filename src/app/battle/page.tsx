@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, type JSX } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { type Ordinal } from "@/lib/mockData";
@@ -251,12 +251,11 @@ export default function BattlePage() {
 
         {/* My fighter */}
         <div className="flex flex-col items-center gap-4">
-          <div
-            className={`text-8xl md:text-9xl select-none ${shakePlayer ? "shake-anim" : "float-anim"}`}
-            style={{ filter: shakePlayer ? "drop-shadow(0 0 20px #ef4444)" : `drop-shadow(0 0 20px ${myFighter.glowColor})` }}
-          >
-            {myFighter.emoji}
-          </div>
+          <ArenaFighter
+            fighter={myFighter}
+            shake={shakePlayer}
+            flip={false}
+          />
           <div
             className="text-[10px] px-3 py-1 rounded font-bold tracking-widest uppercase"
             style={{
@@ -281,16 +280,11 @@ export default function BattlePage() {
 
         {/* Opponent fighter */}
         <div className="flex flex-col items-center gap-4">
-          <div
-            className={`text-8xl md:text-9xl select-none ${shakeEnemy ? "shake-anim" : "float-anim"}`}
-            style={{
-              filter: shakeEnemy ? "drop-shadow(0 0 20px #ef4444)" : `drop-shadow(0 0 20px ${opponent.glowColor})`,
-              animationDelay: "1s",
-              transform: "scaleX(-1)",
-            }}
-          >
-            {opponent.emoji}
-          </div>
+          <ArenaFighter
+            fighter={opponent}
+            shake={shakeEnemy}
+            flip={true}
+          />
           <div
             className="text-[10px] px-3 py-1 rounded font-bold tracking-widest uppercase"
             style={{
@@ -412,4 +406,48 @@ export default function BattlePage() {
       </AnimatePresence>
     </div>
   );
+}
+
+function ArenaFighter({
+  fighter,
+  shake,
+  flip,
+}: {
+  fighter: import("@/lib/mockData").Ordinal;
+  shake: boolean;
+  flip: boolean;
+}): JSX.Element {
+  const [imgError, setImgError] = useState(false);
+  const isImage = fighter.contentType?.startsWith("image/");
+  const glowColor = shake ? "#ef4444" : fighter.glowColor;
+
+  let visual: JSX.Element;
+  if (fighter.contentUrl && isImage && !imgError) {
+    visual = (
+      <img
+        src={fighter.contentUrl}
+        alt={fighter.name}
+        className={`w-32 h-32 md:w-40 md:h-40 object-contain rounded-lg select-none ${shake ? "shake-anim" : "float-anim"}`}
+        style={{
+          filter: `drop-shadow(0 0 20px ${glowColor})`,
+          transform: flip ? "scaleX(-1)" : undefined,
+        }}
+        onError={() => setImgError(true)}
+      />
+    );
+  } else {
+    visual = (
+      <div
+        className={`text-8xl md:text-9xl select-none ${shake ? "shake-anim" : "float-anim"}`}
+        style={{
+          filter: `drop-shadow(0 0 20px ${glowColor})`,
+          transform: flip ? "scaleX(-1)" : undefined,
+        }}
+      >
+        {fighter.emoji}
+      </div>
+    );
+  }
+
+  return visual;
 }
