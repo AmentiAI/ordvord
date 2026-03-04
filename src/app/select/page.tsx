@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLaserEyes } from "@omnisat/lasereyes";
-import { ORDINALS, RARITY_COLORS, ELEMENT_ICONS, type Ordinal } from "@/lib/mockData";
+import { RARITY_COLORS, ELEMENT_ICONS, type Ordinal } from "@/lib/mockData";
 import { fetchWalletInscriptions, type OrdiscanInscription } from "@/lib/ordiscan";
 import StatBar from "@/components/StatBar";
 import WalletConnect from "@/components/WalletConnect";
@@ -60,6 +60,20 @@ export default function SelectPage() {
   const [selected, setSelected] = useState<Ordinal | null>(null);
   const [hovering, setHovering] = useState<Ordinal | null>(null);
   const [locked, setLocked] = useState(false);
+  const [dbFighters, setDbFighters] = useState<Ordinal[]>([]);
+  const [loadingFighters, setLoadingFighters] = useState(true);
+  const [fightersError, setFightersError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/fighters")
+      .then((r) => {
+        if (!r.ok) throw new Error(`Failed to load fighters (${r.status})`);
+        return r.json();
+      })
+      .then((data: Ordinal[]) => setDbFighters(data))
+      .catch((e: Error) => setFightersError(e.message))
+      .finally(() => setLoadingFighters(false));
+  }, []);
 
   // Ordiscan inscription state
   const [walletInscriptions, setWalletInscriptions] = useState<OrdiscanInscription[]>([]);
@@ -95,11 +109,11 @@ export default function SelectPage() {
     }
   }, [connected, fetchInscriptions]);
 
-  // Active fighter list: real inscriptions or mock data
+  // Active fighter list: real inscriptions or DB fighters
   const fighters: Ordinal[] =
     connected && useWallet && walletInscriptions.length > 0
       ? walletInscriptions.map(inscriptionToOrdinal)
-      : ORDINALS;
+      : dbFighters;
 
   const isWalletMode = connected && useWallet && walletInscriptions.length > 0;
 
@@ -166,12 +180,41 @@ export default function SelectPage() {
         </p>
       </div>
 
-      <div className="flex flex-1 gap-0 overflow-hidden">
+      {/* On mobile: grid on top, panel below. On md+: side by side */}
+      <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
         {/* Fighter grid */}
-        <div className="flex-1 p-6 overflow-y-auto">
+        <div className="flex-1 p-4 md:p-6 overflow-y-auto min-h-0">
 
-          {/* Loading state */}
-          {connected && loadingInscriptions && (
+          {/* DB fighters loading */}
+          {loadingFighters && (
+            <div className="flex flex-col items-center justify-center py-20 gap-4">
+              <div
+                className="w-10 h-10 rounded-full border-2 border-transparent spin-slow"
+                style={{ borderTopColor: "#f7931a" }}
+              />
+              <p className="text-xs uppercase tracking-widest" style={{ color: "#475569" }}>
+                Loading fighters...
+              </p>
+            </div>
+          )}
+
+          {/* DB fighters error */}
+          {fightersError && (
+            <div
+              className="mb-4 px-4 py-3 rounded-lg flex items-center gap-3 text-sm"
+              style={{
+                background: "rgba(239,68,68,0.08)",
+                border: "1px solid rgba(239,68,68,0.2)",
+                color: "#fca5a5",
+              }}
+            >
+              <span>⚠️</span>
+              <span>{fightersError}</span>
+            </div>
+          )}
+
+          {/* Wallet inscriptions loading */}
+          {!loadingFighters && connected && loadingInscriptions && (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
               <div
                 className="w-10 h-10 rounded-full border-2 border-transparent spin-slow"
@@ -200,7 +243,7 @@ export default function SelectPage() {
           )}
 
           {/* Fighter grid */}
-          {!loadingInscriptions && (
+          {!loadingFighters && !loadingInscriptions && (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-w-5xl mx-auto">
               {fighters.map((ord, i) => {
                 const isSelected = selected?.id === ord.id;
@@ -307,16 +350,16 @@ export default function SelectPage() {
           )}
         </div>
 
-        {/* Side panel */}
+        {/* Side panel — full width below grid on mobile, w-72 on md+ */}
         <AnimatePresence>
           {preview && (
             <motion.div
-              initial={{ x: 80, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: 80, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="w-72 flex-shrink-0 border-l flex flex-col"
-              style={{ borderColor: "rgba(247,147,26,0.1)", background: "rgba(0,0,0,0.4)" }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="w-full md:w-72 flex-shrink-0 border-t md:border-t-0 md:border-l flex flex-col overflow-y-auto"
+              style={{ borderColor: "rgba(247,147,26,0.1)", background: "rgba(0,0,0,0.4)", maxHeight: "55vh", /* mobile cap */ }}
             >
               <div className="p-5 flex flex-col gap-4 flex-1">
                 {/* Fighter display */}
@@ -463,6 +506,8 @@ function InscriptionPreview({
         alt={`Inscription #${inscription.inscription_number}`}
         className={`${px} object-contain rounded ${floating ? "float-anim" : ""}`}
         style={{ filter: `drop-shadow(0 0 12px ${glowColor})` }}
+        loading="lazy"
+        decoding="async"
         onError={() => setImgError(true)}
       />
     );

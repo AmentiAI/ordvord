@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
     "@omnisat/lasereyes": "^0.0.162",
     "framer-motion": "^12.34.5",
     "next": "16.1.6",

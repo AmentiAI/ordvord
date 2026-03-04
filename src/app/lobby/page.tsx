@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, type JSX } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ORDINALS, type Ordinal } from "@/lib/mockData";
+import { type Ordinal } from "@/lib/mockData";
 
 const SEARCH_MESSAGES = [
   "Scanning blockchain...",
@@ -14,10 +14,12 @@ const SEARCH_MESSAGES = [
   "Opponent found!",
 ];
 
-// Pick a random opponent that isn't the player's fighter
-function pickOpponent(myId: string): Ordinal {
-  const others = ORDINALS.filter((o) => o.id !== myId);
-  return others[Math.floor(Math.random() * others.length)];
+async function pickOpponent(myId: string): Promise<Ordinal> {
+  const res = await fetch(`/api/fighters?exclude=${myId}`);
+  if (!res.ok) throw new Error(`Failed to load opponents (${res.status})`);
+  const fighters: Ordinal[] = await res.json();
+  if (!fighters.length) throw new Error("No opponents available");
+  return fighters[Math.floor(Math.random() * fighters.length)];
 }
 
 export default function LobbyPage() {
@@ -28,6 +30,7 @@ export default function LobbyPage() {
   const [dots, setDots] = useState(".");
   const [phase, setPhase] = useState<"searching" | "found">("searching");
   const [countdown, setCountdown] = useState(3);
+  const [error, setError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   useEffect(() => {
@@ -48,11 +51,15 @@ export default function LobbyPage() {
     }, 1000);
 
     // Reveal opponent after 4s
-    timerRef.current = setTimeout(() => {
-      const opp = pickOpponent(fighter.id);
-      sessionStorage.setItem("opponent", JSON.stringify(opp));
-      setOpponent(opp);
-      setPhase("found");
+    timerRef.current = setTimeout(async () => {
+      try {
+        const opp = await pickOpponent(fighter.id);
+        sessionStorage.setItem("opponent", JSON.stringify(opp));
+        setOpponent(opp);
+        setPhase("found");
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to find opponent");
+      }
     }, 4000);
 
     return () => {
@@ -84,6 +91,24 @@ export default function LobbyPage() {
   }, [phase, router]);
 
   if (!myFighter) return null;
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "#050508" }}>
+        <div className="text-center px-6">
+          <div className="text-2xl font-black mb-2" style={{ color: "#ef4444" }}>CONNECTION ERROR</div>
+          <div className="text-sm mb-6" style={{ color: "#475569" }}>{error}</div>
+          <button
+            onClick={() => router.push("/select")}
+            className="px-6 py-3 font-bold text-sm tracking-widest uppercase cursor-pointer"
+            style={{ background: "rgba(247,147,26,0.1)", color: "#f7931a", border: "1px solid rgba(247,147,26,0.2)", borderRadius: 4 }}
+          >
+            BACK TO SELECT
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -254,6 +279,8 @@ function FighterAvatar({ fighter }: { fighter: Ordinal }): JSX.Element {
         alt={fighter.name}
         className="w-full h-full object-contain rounded-lg float-anim"
         style={{ filter: `drop-shadow(0 0 10px ${fighter.glowColor})` }}
+        loading="eager"
+        decoding="async"
         onError={() => setImgError(true)}
       />
     );

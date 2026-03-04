@@ -6,7 +6,8 @@ import { motion } from "framer-motion";
 import { useLaserEyes } from "@omnisat/lasereyes";
 import WalletConnect from "@/components/WalletConnect";
 
-const PARTICLES = Array.from({ length: 24 }, (_, i) => ({
+// Reduced to 12 particles — CSS animated, not Framer Motion
+const PARTICLES = Array.from({ length: 12 }, (_, i) => ({
   id: i,
   x: (i * 17 + 5) % 100,
   y: (i * 23 + 10) % 100,
@@ -36,15 +37,16 @@ export default function Home() {
     return () => clearInterval(t);
   }, []);
 
+  // Larger step + slower interval = fewer React re-renders for same visual result
   useEffect(() => {
     const target = 14892;
-    const step = 250;
+    const step = 500;
     const t = setInterval(() => {
       setCount((c) => {
         if (c >= target) { clearInterval(t); return target; }
         return c + step;
       });
-    }, 30);
+    }, 50);
     return () => clearInterval(t);
   }, []);
 
@@ -70,14 +72,19 @@ export default function Home() {
         }}
       />
 
-      {/* Floating particles */}
+      {/* Floating particles — CSS animated, zero JS overhead */}
       {PARTICLES.map((p) => (
-        <motion.div
+        <div
           key={p.id}
-          className="absolute rounded-full bg-orange-400 opacity-30"
-          style={{ left: `${p.x}%`, top: `${p.y}%`, width: p.size, height: p.size }}
-          animate={{ y: [0, -30, 0], opacity: [0.15, 0.5, 0.15] }}
-          transition={{ duration: p.duration, delay: p.delay, repeat: Infinity, ease: "easeInOut" }}
+          className="particle"
+          style={{
+            left: `${p.x}%`,
+            top: `${p.y}%`,
+            width: p.size,
+            height: p.size,
+            animationDuration: `${p.duration}s`,
+            animationDelay: `${p.delay}s`,
+          }}
         />
       ))}
 
@@ -94,26 +101,27 @@ export default function Home() {
         initial={{ opacity: 0 }}
         animate={{ opacity: entered ? 0 : 1 }}
         transition={{ duration: 0.5 }}
-        className="relative z-10 flex flex-col items-center gap-8 px-4 text-center"
+        className="relative z-10 flex flex-col items-center gap-6 md:gap-8 px-4 text-center"
       >
         {/* Live ticker */}
         <motion.div
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.2 }}
-          className="flex items-center gap-3 border rounded px-4 py-2 text-xs"
+          className="flex items-center gap-3 border rounded px-3 md:px-4 py-2 text-xs max-w-xs md:max-w-none overflow-hidden"
           style={{
             background: "rgba(0,0,0,0.6)",
             borderColor: "rgba(247,147,26,0.3)",
             color: "#fb923c",
           }}
         >
-          <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+          <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
           <motion.span
             key={tickerIdx}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
+            className="truncate"
           >
             {TICKER[tickerIdx]}
           </motion.span>
@@ -129,14 +137,14 @@ export default function Home() {
             className="glitch font-black tracking-tighter leading-none"
             data-text="ORDVORD"
             style={{
-              fontSize: "clamp(5rem, 15vw, 10rem)",
+              fontSize: "clamp(4rem, 15vw, 10rem)",
               color: "#f7931a",
               textShadow: "0 0 40px rgba(247,147,26,0.6), 0 0 80px rgba(247,147,26,0.3)",
             }}
           >
             ORDVORD
           </div>
-          <div className="text-sm tracking-[0.4em] mt-2 uppercase" style={{ color: "#64748b" }}>
+          <div className="text-xs md:text-sm tracking-[0.3em] md:tracking-[0.4em] mt-2 uppercase" style={{ color: "#64748b" }}>
             Bitcoin Ordinal Battle Arena
           </div>
         </motion.div>
@@ -146,7 +154,7 @@ export default function Home() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.6 }}
-          className="flex gap-8 text-center"
+          className="flex gap-5 md:gap-8 text-center"
         >
           {[
             { label: "Battles Fought", val: count.toLocaleString() },
@@ -154,8 +162,8 @@ export default function Home() {
             { label: "Season", val: "03" },
           ].map((s) => (
             <div key={s.label} className="flex flex-col">
-              <span className="text-2xl font-black" style={{ color: "#f7931a" }}>{s.val}</span>
-              <span className="text-xs uppercase tracking-widest" style={{ color: "#475569" }}>{s.label}</span>
+              <span className="text-xl md:text-2xl font-black" style={{ color: "#f7931a" }}>{s.val}</span>
+              <span className="text-[9px] md:text-xs uppercase tracking-widest" style={{ color: "#475569" }}>{s.label}</span>
             </div>
           ))}
         </motion.div>
@@ -165,7 +173,7 @@ export default function Home() {
           initial={{ scaleX: 0 }}
           animate={{ scaleX: 1 }}
           transition={{ delay: 0.7, duration: 0.6 }}
-          className="w-64 h-px"
+          className="w-48 md:w-64 h-px"
           style={{ background: "linear-gradient(90deg, transparent, #f7931a, transparent)" }}
         />
 
@@ -178,7 +186,7 @@ export default function Home() {
         >
           <button
             onClick={handleEnter}
-            className="relative group px-12 py-4 text-lg font-black tracking-widest uppercase overflow-hidden cursor-pointer transition-all duration-200 active:scale-95"
+            className="relative group px-10 md:px-12 py-4 text-base md:text-lg font-black tracking-widest uppercase overflow-hidden cursor-pointer transition-all duration-200 active:scale-95"
             style={{
               background: "linear-gradient(135deg, #f7931a, #c27515)",
               color: "#000",
@@ -191,43 +199,41 @@ export default function Home() {
           </button>
 
           {connected && address ? (
-            <p className="text-xs tracking-widest" style={{ color: "#22c55e" }}>
+            <p className="text-xs tracking-widest text-center" style={{ color: "#22c55e" }}>
               ✓ WALLET CONNECTED — YOUR ORDINALS WILL LOAD IN SELECTION
             </p>
           ) : (
-            <p className="text-xs tracking-widest" style={{ color: "#334155" }}>
+            <p className="text-xs tracking-widest text-center px-4" style={{ color: "#334155" }}>
               CONNECT WALLET (TOP RIGHT) TO USE YOUR OWN ORDINALS
             </p>
           )}
         </motion.div>
 
-        {/* Fighter emoji preview */}
+        {/* Fighter emoji preview — CSS float, no Framer Motion loops */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1 }}
-          className="flex gap-4"
+          className="flex gap-3 md:gap-4"
         >
           {["💀", "🔥", "🦍", "⚡", "❄️", "👾", "🧙", "🐉"].map((e, i) => (
-            <motion.span
+            <span
               key={e}
-              className="text-2xl select-none cursor-default"
-              style={{ opacity: 0.35 }}
-              animate={{ y: [0, -8, 0] }}
-              transition={{ duration: 2, delay: i * 0.2, repeat: Infinity, ease: "easeInOut" }}
+              className="text-xl md:text-2xl select-none cursor-default float-anim"
+              style={{ opacity: 0.35, animationDelay: `${i * 0.25}s` }}
             >
               {e}
-            </motion.span>
+            </span>
           ))}
         </motion.div>
       </motion.div>
 
       {/* Bottom bar */}
       <div
-        className="absolute bottom-0 left-0 right-0 border-t flex items-center px-4"
+        className="absolute bottom-0 left-0 right-0 border-t flex items-center px-4 overflow-x-auto"
         style={{ height: 32, background: "rgba(0,0,0,0.6)", borderColor: "rgba(247,147,26,0.1)" }}
       >
-        <div className="flex gap-6 text-[10px] tracking-widest uppercase" style={{ color: "#431a04" }}>
+        <div className="flex gap-4 md:gap-6 text-[10px] tracking-widest uppercase whitespace-nowrap" style={{ color: "#431a04" }}>
           <span>BLOCKCHAIN VERIFIED</span>
           <span>•</span>
           <span>PROVABLY FAIR</span>

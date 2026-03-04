@@ -81,10 +81,27 @@ export default function BattlePage() {
     setTimeout(() => setDamages((d) => d.filter((x) => x.id !== id)), 1100);
   };
 
-  const endBattle = useCallback((w: "player" | "enemy") => {
+  const endBattle = useCallback((w: "player" | "enemy", finalRound: number) => {
     setWinner(w);
     setPhase("ended");
     sessionStorage.setItem("winner", w);
+
+    // Save battle to DB (fire and forget)
+    const mf = JSON.parse(sessionStorage.getItem("myFighter") || "{}");
+    const opp = JSON.parse(sessionStorage.getItem("opponent") || "{}");
+    fetch("/api/battles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        player_fighter_id: mf.id ?? "unknown",
+        player_inscription_number: mf.inscriptionNumber ?? 0,
+        opponent_fighter_id: opp.id ?? "unknown",
+        opponent_inscription_number: opp.inscriptionNumber ?? 0,
+        winner: w,
+        rounds_played: finalRound,
+      }),
+    }).catch(() => {});
+
     setTimeout(() => router.push("/result"), 2500);
   }, [router]);
 
@@ -103,7 +120,7 @@ export default function BattlePage() {
 
       if (newHp <= 0) {
         addLog(`☠️ ${f.name} was defeated!`, "system");
-        endBattle("enemy");
+        endBattle("enemy", round);
       } else {
         setRound((r) => r + 1);
         setPhase("player_turn");
@@ -133,7 +150,7 @@ export default function BattlePage() {
 
     if (newOppHp <= 0) {
       addLog(`🏆 ${opponent.name} was defeated!`, "system");
-      endBattle("player");
+      endBattle("player", round);
       return;
     }
 
@@ -303,12 +320,13 @@ export default function BattlePage() {
         className="border-t"
         style={{ borderColor: "rgba(247,147,26,0.1)", background: "rgba(0,0,0,0.7)" }}
       >
-        <div className="flex gap-0 h-40">
+        {/* Mobile: log above, buttons below. sm+: side by side */}
+        <div className="flex flex-col sm:flex-row">
           {/* Battle log */}
           <div
             ref={logRef}
-            className="flex-1 overflow-y-auto p-3 space-y-1 border-r text-xs"
-            style={{ borderColor: "rgba(247,147,26,0.1)" }}
+            className="flex-1 overflow-y-auto p-3 space-y-1 border-b sm:border-b-0 sm:border-r text-xs"
+            style={{ borderColor: "rgba(247,147,26,0.1)", height: 80 }}
           >
             <AnimatePresence>
               {log.map((entry) => (
@@ -332,8 +350,8 @@ export default function BattlePage() {
             </AnimatePresence>
           </div>
 
-          {/* Action buttons */}
-          <div className="w-64 flex-shrink-0 grid grid-cols-2 gap-2 p-3">
+          {/* Action buttons — full width on mobile, fixed on sm+ */}
+          <div className="w-full sm:w-64 flex-shrink-0 grid grid-cols-2 gap-1.5 sm:gap-2 p-2 sm:p-3">
             {[
               { label: "⚔️ Strike", desc: "15–25 DMG", action: () => handleAttack("strike"), disabled: phase !== "player_turn" },
               { label: "💥 Power Hit", desc: "28–42 DMG", action: () => handleAttack("power"), disabled: phase !== "player_turn" },
@@ -432,6 +450,8 @@ function ArenaFighter({
           filter: `drop-shadow(0 0 20px ${glowColor})`,
           transform: flip ? "scaleX(-1)" : undefined,
         }}
+        loading="eager"
+        decoding="async"
         onError={() => setImgError(true)}
       />
     );

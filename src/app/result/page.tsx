@@ -5,21 +5,14 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { type Ordinal } from "@/lib/mockData";
 
-const CONFETTI_PIECES = Array.from({ length: 30 }, (_, i) => ({
-  id: i,
-  x: Math.random() * 100,
-  color: ["#f7931a", "#a855f7", "#06b6d4", "#22c55e", "#f59e0b"][i % 5],
-  delay: Math.random() * 0.8,
-  duration: 1.5 + Math.random() * 1,
-}));
+// Sats payout: both ordinals burned, winner claims all (~625 after gas)
+const SATS_PAYOUT = 625;
 
 export default function ResultPage() {
   const router = useRouter();
   const [myFighter, setMyFighter] = useState<Ordinal | null>(null);
   const [opponent, setOpponent] = useState<Ordinal | null>(null);
   const [isWinner, setIsWinner] = useState(false);
-  const [xpGained] = useState(Math.floor(Math.random() * 300) + 150);
-  const [satsGained] = useState(Math.floor(Math.random() * 5000) + 1000);
 
   useEffect(() => {
     const mf = sessionStorage.getItem("myFighter");
@@ -33,36 +26,26 @@ export default function ResultPage() {
 
   if (!myFighter || !opponent) return null;
 
-  const fighter = isWinner ? myFighter : opponent;
+  const winner = isWinner ? myFighter : opponent;
+  const loser = isWinner ? opponent : myFighter;
 
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden"
       style={{ background: "#050508" }}
     >
-      {/* Confetti (win only) */}
-      {isWinner &&
-        CONFETTI_PIECES.map((p) => (
-          <motion.div
-            key={p.id}
-            className="absolute w-2 h-2 rounded-sm pointer-events-none"
-            style={{ left: `${p.x}%`, background: p.color, top: -10 }}
-            animate={{ y: ["0vh", "110vh"], rotate: [0, 720], opacity: [1, 0.3] }}
-            transition={{ duration: p.duration, delay: p.delay, ease: "easeIn" }}
-          />
-        ))}
-
       {/* BG radial */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background: isWinner
-            ? "radial-gradient(ellipse 60% 50% at 50% 40%, rgba(247,147,26,0.1) 0%, transparent 70%)"
-            : "radial-gradient(ellipse 60% 50% at 50% 40%, rgba(239,68,68,0.08) 0%, transparent 70%)",
+            ? "radial-gradient(ellipse 60% 50% at 50% 40%, rgba(247,147,26,0.08) 0%, transparent 70%)"
+            : "radial-gradient(ellipse 60% 50% at 50% 40%, rgba(239,68,68,0.06) 0%, transparent 70%)",
         }}
       />
 
-      <div className="relative z-10 flex flex-col items-center gap-8 px-4 text-center max-w-lg w-full">
+      <div className="relative z-10 flex flex-col items-center gap-6 md:gap-8 px-4 text-center max-w-lg w-full">
+
         {/* Result banner */}
         <motion.div
           initial={{ scale: 0.4, opacity: 0 }}
@@ -70,42 +53,31 @@ export default function ResultPage() {
           transition={{ type: "spring", stiffness: 200, damping: 15 }}
         >
           <div
-            className="text-7xl md:text-8xl font-black tracking-widest"
+            className="text-6xl md:text-8xl font-black tracking-widest"
             style={{
               color: isWinner ? "#f7931a" : "#ef4444",
               textShadow: `0 0 60px ${isWinner ? "rgba(247,147,26,0.8)" : "rgba(239,68,68,0.8)"}`,
             }}
           >
-            {isWinner ? "VICTORY!" : "DEFEATED!"}
+            {isWinner ? "VICTORY" : "DEFEATED"}
           </div>
-          <div className="text-sm tracking-widest mt-1 uppercase" style={{ color: "#475569" }}>
-            {isWinner
-              ? `${myFighter.name} conquers the arena`
-              : `${opponent.name} wins the battle`}
+          <div className="text-xs tracking-widest mt-2 uppercase" style={{ color: "#334155" }}>
+            Both ordinals burned — inscriptions destroyed forever
           </div>
         </motion.div>
 
-        {/* Winner fighter big display */}
+        {/* Both fighters burned */}
         <motion.div
-          initial={{ y: 30, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="flex flex-col items-center gap-2"
+          className="flex items-center justify-center gap-6 w-full"
         >
-          <div
-            className="text-9xl float-anim"
-            style={{
-              filter: `drop-shadow(0 0 30px ${fighter.glowColor})`,
-            }}
-          >
-            {fighter.emoji}
+          <BurnedFighter fighter={myFighter} label="YOU" isWinner={isWinner} />
+          <div className="flex flex-col items-center gap-1">
+            <div className="text-2xl font-black" style={{ color: "#1e293b" }}>VS</div>
           </div>
-          <div className="font-black text-xl" style={{ color: "#e2e8f0" }}>
-            {fighter.name}
-          </div>
-          <div className="text-xs" style={{ color: "#334155" }}>
-            Inscription #{fighter.inscriptionNumber.toLocaleString()}
-          </div>
+          <BurnedFighter fighter={opponent} label="OPPONENT" isWinner={!isWinner} />
         </motion.div>
 
         {/* Divider */}
@@ -114,8 +86,8 @@ export default function ResultPage() {
           style={{ background: `linear-gradient(90deg, transparent, ${isWinner ? "#f7931a" : "#ef4444"}, transparent)` }}
         />
 
-        {/* Rewards (win only) */}
-        {isWinner && (
+        {/* Outcome */}
+        {isWinner ? (
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -126,35 +98,42 @@ export default function ResultPage() {
               border: "1px solid rgba(247,147,26,0.2)",
             }}
           >
-            <div className="text-[10px] uppercase tracking-widest mb-4" style={{ color: "#475569" }}>
-              Battle Rewards
+            <div className="text-[10px] uppercase tracking-widest mb-3" style={{ color: "#475569" }}>
+              Sats Claimed
             </div>
-            <div className="flex justify-around">
-              {[
-                { icon: "⭐", label: "XP Gained", value: `+${xpGained}` },
-                { icon: "₿", label: "Sats Earned", value: `+${satsGained.toLocaleString()}` },
-                { icon: "🏆", label: "Win Streak", value: "1" },
-              ].map((r) => (
-                <div key={r.label} className="flex flex-col items-center gap-1">
-                  <span className="text-2xl">{r.icon}</span>
-                  <span className="text-xl font-black" style={{ color: "#f7931a" }}>{r.value}</span>
-                  <span className="text-[9px] uppercase tracking-widest" style={{ color: "#334155" }}>{r.label}</span>
-                </div>
-              ))}
+            <div className="text-5xl font-black" style={{ color: "#f7931a" }}>
+              +{SATS_PAYOUT}
+            </div>
+            <div className="text-xs mt-1 uppercase tracking-widest" style={{ color: "#334155" }}>
+              sats sent to your wallet
+            </div>
+            <div className="text-[10px] mt-3 uppercase tracking-widest" style={{ color: "#1e293b" }}>
+              {winner.name} #{winner.inscriptionNumber.toLocaleString()} · burned
             </div>
           </motion.div>
-        )}
-
-        {/* Defeat message */}
-        {!isWinner && (
+        ) : (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5 }}
-            className="text-sm"
-            style={{ color: "#475569" }}
+            className="w-full rounded-xl p-5"
+            style={{
+              background: "rgba(239,68,68,0.04)",
+              border: "1px solid rgba(239,68,68,0.12)",
+            }}
           >
-            Your ordinal fought bravely. Train harder and return.
+            <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "#475569" }}>
+              Result
+            </div>
+            <div className="text-lg font-black" style={{ color: "#ef4444" }}>
+              Your ordinal was burned
+            </div>
+            <div className="text-xs mt-1" style={{ color: "#334155" }}>
+              {winner.name} claimed {SATS_PAYOUT} sats
+            </div>
+            <div className="text-[10px] mt-3 uppercase tracking-widest" style={{ color: "#1e293b" }}>
+              #{myFighter.inscriptionNumber.toLocaleString()} · permanently destroyed
+            </div>
           </motion.div>
         )}
 
@@ -163,7 +142,7 @@ export default function ResultPage() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.7 }}
-          className="flex gap-4 w-full"
+          className="flex gap-3 md:gap-4 w-full"
         >
           <button
             onClick={() => router.push("/select")}
@@ -175,7 +154,7 @@ export default function ResultPage() {
               boxShadow: "0 0 20px rgba(247,147,26,0.4)",
             }}
           >
-            ⚔️ FIGHT AGAIN
+            FIGHT AGAIN
           </button>
           <button
             onClick={() => router.push("/")}
@@ -187,11 +166,11 @@ export default function ResultPage() {
               borderRadius: 4,
             }}
           >
-            🏠 MAIN MENU
+            MAIN MENU
           </button>
         </motion.div>
 
-        {/* Inscription badge */}
+        {/* TX badge */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -199,8 +178,59 @@ export default function ResultPage() {
           className="text-[10px] tracking-widest uppercase"
           style={{ color: "#1e293b" }}
         >
-          BATTLE RESULT INSCRIBED ON BITCOIN BLOCKCHAIN
+          OP_RETURN · BOTH INSCRIPTIONS BURNED ON-CHAIN
         </motion.div>
+      </div>
+    </div>
+  );
+}
+
+function BurnedFighter({ fighter, label, isWinner }: { fighter: Ordinal; label: string; isWinner: boolean }) {
+  const [imgError, setImgError] = useState(false);
+  const isImage = fighter.contentType?.startsWith("image/");
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <div className="relative">
+        {isImage && fighter.contentUrl && !imgError ? (
+          <img
+            src={fighter.contentUrl}
+            alt={fighter.name}
+            className="w-20 h-20 md:w-24 md:h-24 object-contain rounded-xl"
+            style={{
+              filter: "grayscale(1) brightness(0.4)",
+              border: "1px solid rgba(239,68,68,0.3)",
+            }}
+            loading="eager"
+            decoding="async"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div
+            className="text-6xl md:text-7xl"
+            style={{ filter: "grayscale(1) brightness(0.4)" }}
+          >
+            {fighter.emoji}
+          </div>
+        )}
+        {/* BURNED overlay */}
+        <div
+          className="absolute inset-0 flex items-center justify-center rounded-xl"
+          style={{ background: "rgba(239,68,68,0.15)" }}
+        >
+          <span
+            className="text-[9px] font-black tracking-widest rotate-[-15deg]"
+            style={{ color: "#ef4444", textShadow: "0 0 8px rgba(239,68,68,0.8)" }}
+          >
+            BURNED
+          </span>
+        </div>
+      </div>
+      <div className="text-[9px] uppercase tracking-widest" style={{ color: isWinner ? "#f7931a" : "#475569" }}>
+        {label}
+      </div>
+      <div className="text-[10px] font-bold" style={{ color: isWinner ? "#e2e8f0" : "#334155" }}>
+        {fighter.name}
       </div>
     </div>
   );

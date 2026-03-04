@@ -26,8 +26,8 @@ body::before {
     0deg,
     transparent,
     transparent 2px,
-    rgba(0, 0, 0, 0.06) 2px,
-    rgba(0, 0, 0, 0.06) 4px
+    rgba(0, 0, 0, 0.05) 2px,
+    rgba(0, 0, 0, 0.05) 4px
   );
   pointer-events: none;
   z-index: 9999;
@@ -60,6 +60,7 @@ body::before {
   font-size: inherit;
   font-weight: inherit;
   letter-spacing: inherit;
+  will-change: transform, clip-path;
 }
 .glitch::before {
   color: #f97316;
@@ -127,13 +128,39 @@ body::before {
   to   { transform: rotate(360deg); }
 }
 
-.float-anim   { animation: floatY 3s ease-in-out infinite; }
-.shake-anim   { animation: shake 0.4s ease-in-out; }
+/* ─── Particle animation (CSS-only, no Framer Motion) ─── */
+@keyframes particleFloat {
+  0%, 100% { transform: translateY(0);     opacity: 0.15; }
+  50%       { transform: translateY(-30px); opacity: 0.45; }
+}
+
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  background: #fb923c;
+  will-change: transform;
+  animation: particleFloat 6s ease-in-out infinite;
+}
+
+/* ─── Confetti animation (CSS-only, no Framer Motion) ─── */
+@keyframes confettiFall {
+  0%   { transform: translateY(-10px) rotate(0deg);   opacity: 1; }
+  100% { transform: translateY(110vh) rotate(720deg); opacity: 0.2; }
+}
+
+.confetti-fall {
+  animation: confettiFall var(--duration, 2s) var(--delay, 0s) ease-in forwards;
+  will-change: transform;
+}
+
+/* ─── Utility animation classes ─── */
+.float-anim   { animation: floatY 3s ease-in-out infinite;        will-change: transform; }
+.shake-anim   { animation: shake 0.4s ease-in-out;                will-change: transform; }
 .blink-cursor { animation: blink 1s step-end infinite; }
 .vs-flash     { animation: vsFlash 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
-.damage-float { animation: damageFloat 1s ease-out forwards; }
+.damage-float { animation: damageFloat 1s ease-out forwards;      will-change: transform; }
 .fade-in-up   { animation: fadeInUp 0.5s ease-out forwards; }
-.spin-slow    { animation: spin 4s linear infinite; }
+.spin-slow    { animation: spin 4s linear infinite;               will-change: transform; }
 
 .animated-border {
   background: linear-gradient(90deg, #f7931a, #a855f7, #06b6d4, #f7931a);
@@ -146,6 +173,35 @@ body::before {
 }
 .card-hover:hover {
   transform: translateY(-4px) scale(1.02);
+}
+
+/* Disable hover lift on touch screens — prevents tap jank */
+@media (hover: none) {
+  .card-hover:hover {
+    transform: none;
+  }
+}
+
+/* ─── Reduced motion: disable all decorative animations ─── */
+@media (prefers-reduced-motion: reduce) {
+  .float-anim,
+  .glitch::before,
+  .glitch::after,
+  .spin-slow,
+  .animated-border,
+  .damage-float,
+  .confetti-fall,
+  .particle {
+    animation: none !important;
+  }
+  .card-hover {
+    transition: none;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
 
 ::-webkit-scrollbar { width: 4px; }
