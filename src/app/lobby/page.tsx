@@ -1,37 +1,70 @@
 "use client";
 
-import { useEffect, useState, useRef, type JSX } from "react";
+import { useEffect, useState, useRef, useCallback, type JSX } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLaserEyes } from "@omnisat/lasereyes";
 import { type Ordinal } from "@/lib/mockData";
 
-const SEARCH_MESSAGES = [
-  "Scanning blockchain...",
-  "Scanning blockchain...",
-  "Finding opponent...",
-  "Finding opponent...",
-  "Matching skill levels...",
-  "Opponent found!",
-];
-
-async function pickOpponent(myId: string): Promise<Ordinal> {
-  const res = await fetch(`/api/fighters?exclude=${myId}`);
-  if (!res.ok) throw new Error(`Failed to load opponents (${res.status})`);
-  const fighters: Ordinal[] = await res.json();
-  if (!fighters.length) throw new Error("No opponents available");
-  return fighters[Math.floor(Math.random() * fighters.length)];
+function getPlayerId(walletAddress: string | undefined): string {
+  if (walletAddress) return walletAddress;
+  const key = "ordvord_player_id";
+  let id = sessionStorage.getItem(key);
+  if (!id) {
+    id = crypto.randomUUID();
+    sessionStorage.setItem(key, id);
+  }
+  return id;
 }
 
 export default function LobbyPage() {
   const router = useRouter();
+  const { address } = useLaserEyes();
   const [myFighter, setMyFighter] = useState<Ordinal | null>(null);
   const [opponent, setOpponent] = useState<Ordinal | null>(null);
-  const [msgIdx, setMsgIdx] = useState(0);
-  const [dots, setDots] = useState(".");
-  const [phase, setPhase] = useState<"searching" | "found">("searching");
+  const [phase, setPhase] = useState<"searching" | "found" | "error">("searching");
   const [countdown, setCountdown] = useState(3);
   const [error, setError] = useState<string | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const [waitSeconds, setWaitSeconds] = useState(0);
+
+  const queueIdRef = useRef<string | null>(null);
+  const playerIdRef = useRef<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const waitTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cancelledRef = useRef(false);
+
+  const stopPolling = () => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    if (waitTimerRef.current) { clearInterval(waitTimerRef.current); waitTimerRef.current = null; }
+  };
+
+  const handleMatched = useCallback((oppFighter: Ordinal) => {
+    stopPolling();
+    sessionStorage.setItem("opponent", JSON.stringify(oppFighter));
+    setOpponent(oppFighter);
+    setPhase("found");
+  }, []);
+
+  const poll = useCallback(async () => {
+    const queueId = queueIdRef.current;
+    const playerId = playerIdRef.current;
+    if (!queueId || !playerId || cancelledRef.current) return;
+
+    try {
+      const res = await fetch(`/api/matchmaking/status?queue_id=${queueId}&player_id=${playerId}`);
+      const data = await res.json();
+
+      if (data.status === "matched" && data.opponent) {
+        handleMatched(data.opponent as Ordinal);
+      } else if (data.status === "cancelled" || !res.ok) {
+        stopPolling();
+        setError(data.error ?? "Match was cancelled");
+        setPhase("error");
+      }
+    } catch {
+      // network blip — keep polling
+    }
+  }, [handleMatched]);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("myFighter");
@@ -39,51 +72,71 @@ export default function LobbyPage() {
     const fighter: Ordinal = JSON.parse(stored);
     setMyFighter(fighter);
 
-    // Cycle messages
-    let i = 0;
-    const msgTimer = setInterval(() => {
-      i++;
-      if (i < SEARCH_MESSAGES.length) {
-        setMsgIdx(i);
-      } else {
-        clearInterval(msgTimer);
-      }
-    }, 1000);
+    const playerId = getPlayerId(address ?? undefined);
+    playerIdRef.current = playerId;
+    cancelledRef.current = false;
 
-    // Reveal opponent after 4s
-    timerRef.current = setTimeout(async () => {
+    (async () => {
       try {
-        const opp = await pickOpponent(fighter.id);
-        sessionStorage.setItem("opponent", JSON.stringify(opp));
-        setOpponent(opp);
-        setPhase("found");
+        const res = await fetch("/api/matchmaking/join", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ player_id: playerId, fighter_data: fighter }),
+        });
+        if (!res.ok) throw new Error(`Join failed (${res.status})`);
+        const data = await res.json();
+
+        if (cancelledRef.current) return;
+
+        if (data.matched && data.opponent) {
+          queueIdRef.current = data.queue_id;
+          handleMatched(data.opponent as Ordinal);
+        } else {
+          queueIdRef.current = data.queue_id;
+          // Start wait timer
+          waitTimerRef.current = setInterval(() => setWaitSeconds((s) => s + 1), 1000);
+          // Poll for match every 2s
+          pollRef.current = setInterval(poll, 2000);
+        }
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to find opponent");
+        if (!cancelledRef.current) {
+          setError(e instanceof Error ? e.message : "Failed to join matchmaking");
+          setPhase("error");
+        }
       }
-    }, 4000);
+    })();
 
     return () => {
-      clearInterval(msgTimer);
-      if (timerRef.current) clearTimeout(timerRef.current);
+      cancelledRef.current = true;
+      stopPolling();
+      // Cancel the queue entry if still searching
+      const queueId = queueIdRef.current;
+      if (queueId) {
+        fetch("/api/matchmaking/cancel", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ queue_id: queueId }),
+        }).catch(() => {});
+      }
     };
-  }, [router]);
-
-  // Blinking dots
-  useEffect(() => {
-    const t = setInterval(() => setDots((d) => (d.length >= 3 ? "." : d + ".")), 400);
-    return () => clearInterval(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Countdown after opponent found
+  // Re-bind poll when it updates (captures latest handleMatched)
+  useEffect(() => {
+    if (phase !== "searching" || !queueIdRef.current) return;
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = setInterval(poll, 2000);
+    }
+  }, [poll, phase]);
+
+  // Countdown after match found
   useEffect(() => {
     if (phase !== "found") return;
     const t = setInterval(() => {
       setCountdown((c) => {
-        if (c <= 1) {
-          clearInterval(t);
-          router.push("/battle");
-          return 0;
-        }
+        if (c <= 1) { clearInterval(t); router.push("/battle"); return 0; }
         return c - 1;
       });
     }, 1000);
@@ -92,7 +145,7 @@ export default function LobbyPage() {
 
   if (!myFighter) return null;
 
-  if (error) {
+  if (phase === "error") {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "#050508" }}>
         <div className="text-center px-6">
@@ -127,42 +180,44 @@ export default function LobbyPage() {
 
       <div className="relative z-10 w-full max-w-4xl px-4 flex flex-col items-center gap-8">
         {/* Status header */}
-        <motion.div
-          initial={{ opacity: 0, y: -12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center"
-        >
+        <div className="text-center">
           <AnimatePresence mode="wait">
-            <motion.div
-              key={msgIdx}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.25 }}
-              className="text-lg font-bold tracking-widest uppercase"
-              style={{ color: phase === "found" ? "#22c55e" : "#f7931a" }}
-            >
-              {phase === "found" ? "⚡ OPPONENT FOUND!" : SEARCH_MESSAGES[msgIdx]}
-              {phase !== "found" && (
-                <span className="blink-cursor" style={{ color: "#f7931a" }}>{dots}</span>
-              )}
-            </motion.div>
+            {phase === "found" ? (
+              <motion.div
+                key="found"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-lg font-bold tracking-widest uppercase"
+                style={{ color: "#22c55e" }}
+              >
+                OPPONENT FOUND
+              </motion.div>
+            ) : (
+              <motion.div
+                key="searching"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-lg font-bold tracking-widest uppercase"
+                style={{ color: "#f7931a" }}
+              >
+                FINDING OPPONENT
+                <BlinkDots />
+              </motion.div>
+            )}
           </AnimatePresence>
 
-          {phase === "found" && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              className="text-sm mt-1"
-              style={{ color: "#64748b" }}
-            >
-              Battle starts in{" "}
-              <span className="font-black" style={{ color: "#f7931a" }}>{countdown}</span>
-              {countdown === 1 ? " second" : " seconds"}...
-            </motion.div>
-          )}
-        </motion.div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className="text-sm mt-1"
+            style={{ color: "#334155" }}
+          >
+            {phase === "found"
+              ? `Battle starts in ${countdown} second${countdown !== 1 ? "s" : ""}...`
+              : `Waiting for a real player — ${waitSeconds}s`}
+          </motion.div>
+        </div>
 
         {/* VS layout */}
         <div className="w-full flex items-center justify-between gap-4">
@@ -171,7 +226,7 @@ export default function LobbyPage() {
             initial={{ x: -60, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ delay: 0.2, type: "spring", stiffness: 120 }}
-            className="flex-1 flex flex-col items-center gap-4"
+            className="flex-1"
           >
             <FighterCard fighter={myFighter} label="YOU" align="left" />
           </motion.div>
@@ -183,15 +238,11 @@ export default function LobbyPage() {
               animate={{ scale: 1, rotate: 0 }}
               transition={{ delay: 0.5, type: "spring", stiffness: 200 }}
               className="text-4xl font-black"
-              style={{
-                color: "#f7931a",
-                textShadow: "0 0 30px rgba(247,147,26,0.8)",
-              }}
+              style={{ color: "#f7931a", textShadow: "0 0 30px rgba(247,147,26,0.8)" }}
             >
               VS
             </motion.div>
 
-            {/* Spinning ring while searching */}
             {phase === "searching" && (
               <div className="relative w-12 h-12">
                 <div
@@ -200,10 +251,7 @@ export default function LobbyPage() {
                 />
                 <div
                   className="absolute inset-1 rounded-full border-2 border-transparent"
-                  style={{
-                    borderBottomColor: "#06b6d4",
-                    animation: "spin 2s linear infinite reverse",
-                  }}
+                  style={{ borderBottomColor: "#06b6d4", animation: "spin 2s linear infinite reverse" }}
                 />
               </div>
             )}
@@ -221,12 +269,7 @@ export default function LobbyPage() {
           </div>
 
           {/* Opponent */}
-          <motion.div
-            initial={{ x: 60, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ delay: 0.2, type: "spring", stiffness: 120 }}
-            className="flex-1 flex flex-col items-center gap-4"
-          >
+          <div className="flex-1">
             <AnimatePresence mode="wait">
               {phase === "searching" ? (
                 <OpponentSkeleton key="skeleton" />
@@ -234,15 +277,15 @@ export default function LobbyPage() {
                 opponent && <FighterCard key="opponent" fighter={opponent} label="OPPONENT" align="right" />
               )}
             </AnimatePresence>
-          </motion.div>
+          </div>
         </div>
 
-        {/* Inscription details */}
+        {/* Stats comparison */}
         {phase === "found" && opponent && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
+            transition={{ delay: 0.3 }}
             className="flex gap-8 text-center"
           >
             {[
@@ -263,15 +306,37 @@ export default function LobbyPage() {
             )}
           </motion.div>
         )}
+
+        {/* Cancel button while searching */}
+        {phase === "searching" && (
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1 }}
+            onClick={() => router.push("/select")}
+            className="text-xs tracking-widest uppercase cursor-pointer transition-opacity hover:opacity-70 px-4 py-2 rounded"
+            style={{ color: "#334155", border: "1px solid rgba(255,255,255,0.06)" }}
+          >
+            CANCEL SEARCH
+          </motion.button>
+        )}
       </div>
     </div>
   );
 }
 
+function BlinkDots() {
+  const [dots, setDots] = useState(".");
+  useEffect(() => {
+    const t = setInterval(() => setDots((d) => (d.length >= 3 ? "." : d + ".")), 400);
+    return () => clearInterval(t);
+  }, []);
+  return <span style={{ color: "#f7931a" }}>{dots}</span>;
+}
+
 function FighterAvatar({ fighter }: { fighter: Ordinal }): JSX.Element {
   const [imgError, setImgError] = useState(false);
   const isImage = fighter.contentType?.startsWith("image/");
-
   if (fighter.contentUrl && isImage && !imgError) {
     return (
       <img
@@ -315,12 +380,9 @@ function FighterCard({ fighter, label, align }: { fighter: Ordinal; label: strin
           <div className={align === "right" ? "text-right" : ""}>
             <div className="font-black text-base" style={{ color: "#e2e8f0" }}>{fighter.name}</div>
             <div className="text-[10px]" style={{ color: "#334155" }}>#{fighter.inscriptionNumber.toLocaleString()}</div>
-            <div className="text-xs mt-1" style={{ color: fighter.glowColor }}>
-              ⚡ {fighter.special}
-            </div>
+            <div className="text-xs mt-1" style={{ color: fighter.glowColor }}>⚡ {fighter.special}</div>
           </div>
         </div>
-
         <div className="grid grid-cols-4 gap-2 text-center">
           {[
             { label: "HP", val: fighter.hp, color: "#22c55e" },
@@ -353,20 +415,19 @@ function OpponentSkeleton() {
           className="w-20 h-20 rounded-lg flex-shrink-0 flex items-center justify-center"
           style={{ background: "#1a1a24" }}
         >
-          <span className="text-2xl opacity-30 spin-slow">⚙️</span>
+          <span className="text-2xl opacity-20 spin-slow">⚙️</span>
         </div>
         <div className="flex-1 space-y-2">
           <div className="h-4 rounded animate-pulse" style={{ background: "#1a1a24", width: "70%" }} />
           <div className="h-3 rounded animate-pulse" style={{ background: "#1a1a24", width: "45%" }} />
+          <div className="text-[10px] uppercase tracking-widest" style={{ color: "#1e293b" }}>
+            Scanning for players...
+          </div>
         </div>
       </div>
       <div className="grid grid-cols-4 gap-2">
         {[0, 1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="h-10 rounded animate-pulse"
-            style={{ background: "#1a1a24", animationDelay: `${i * 0.15}s` }}
-          />
+          <div key={i} className="h-10 rounded animate-pulse" style={{ background: "#1a1a24", animationDelay: `${i * 0.15}s` }} />
         ))}
       </div>
     </motion.div>

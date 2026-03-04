@@ -49,6 +49,24 @@ export async function GET() {
     )
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS matchmaking_queue (
+      id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+      player_id TEXT NOT NULL,
+      fighter_data JSONB NOT NULL,
+      status TEXT NOT NULL DEFAULT 'waiting' CHECK (status IN ('waiting', 'matched', 'cancelled')),
+      opponent_queue_id UUID,
+      joined_at TIMESTAMPTZ DEFAULT NOW(),
+      expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '3 minutes')
+    )
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_matchmaking_status_joined
+    ON matchmaking_queue (status, joined_at)
+    WHERE status = 'waiting'
+  `;
+
   // Seed fighters — skip if already exist
   for (const f of ORDINALS) {
     await sql`
