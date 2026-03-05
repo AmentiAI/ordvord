@@ -9,7 +9,7 @@ import { fetchWalletInscriptions, type OrdiscanInscription } from "@/lib/ordisca
 import StatBar from "@/components/StatBar";
 import WalletConnect from "@/components/WalletConnect";
 
-// Derive deterministic stats from an inscription number so real Ordinals feel like real fighters
+// Derive deterministic stats from an inscription number
 function deriveStats(inscriptionNumber: number): Pick<Ordinal, "hp" | "atk" | "def" | "spd" | "rarity" | "element" | "special" | "specialDesc" | "glowColor"> {
   const seed = inscriptionNumber;
   const hp = 70 + (seed % 50);
@@ -75,7 +75,6 @@ export default function SelectPage() {
       .finally(() => setLoadingFighters(false));
   }, []);
 
-  // Ordiscan inscription state
   const [walletInscriptions, setWalletInscriptions] = useState<OrdiscanInscription[]>([]);
   const [loadingInscriptions, setLoadingInscriptions] = useState(false);
   const [inscriptionError, setInscriptionError] = useState<string | null>(null);
@@ -83,7 +82,6 @@ export default function SelectPage() {
 
   const preview = hovering ?? selected;
 
-  // Fetch inscriptions from Ordiscan when wallet is connected
   const fetchInscriptions = useCallback(async () => {
     if (!connected || !address) return;
     setLoadingInscriptions(true);
@@ -109,7 +107,6 @@ export default function SelectPage() {
     }
   }, [connected, fetchInscriptions]);
 
-  // Active fighter list: real inscriptions or DB fighters
   const fighters: Ordinal[] =
     connected && useWallet && walletInscriptions.length > 0
       ? walletInscriptions.map(inscriptionToOrdinal)
@@ -125,162 +122,153 @@ export default function SelectPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "#050508" }}>
+    <div className="min-h-screen flex flex-col relative overflow-hidden" style={{ background: "var(--bg-void)" }}>
+      {/* Animated background */}
+      <div className="absolute inset-0 opacity-20 pointer-events-none">
+        <div 
+          className="absolute inset-0"
+          style={{
+            background: "radial-gradient(circle at 20% 30%, rgba(247, 147, 26, 0.15), transparent 50%), radial-gradient(circle at 80% 70%, rgba(168, 85, 247, 0.15), transparent 50%)",
+            animation: "bgPulse 10s ease-in-out infinite",
+          }}
+        />
+      </div>
+
       {/* Header */}
-      <div
-        className="flex items-center justify-between px-6 py-3 border-b"
-        style={{ borderColor: "rgba(247,147,26,0.15)", background: "rgba(0,0,0,0.6)" }}
-      >
-        <button
-          onClick={() => router.push("/")}
-          className="text-xs tracking-widest uppercase cursor-pointer transition-opacity hover:opacity-70"
-          style={{ color: "#64748b" }}
-        >
-          ← BACK
-        </button>
+      <div className="glass-card border-b z-10 relative">
+        <div className="flex items-center justify-between px-6 py-4">
+          <button
+            onClick={() => router.push("/")}
+            className="btn-secondary text-xs px-4 py-2"
+          >
+            ← BACK
+          </button>
 
-        <div className="flex items-center gap-3">
-          {connected && (
-            <button
-              onClick={() => setUseWallet((v) => !v)}
-              className="text-[10px] tracking-widest uppercase cursor-pointer transition-opacity hover:opacity-70 px-2 py-1 rounded border"
-              style={{
-                borderColor: "rgba(247,147,26,0.2)",
-                color: useWallet ? "#f7931a" : "#475569",
-                background: useWallet ? "rgba(247,147,26,0.08)" : "transparent",
-              }}
-            >
-              {useWallet ? "⚡ MY ORDINALS" : "📦 DEMO FIGHTERS"}
-            </button>
-          )}
-          <div className="text-xs tracking-widest uppercase" style={{ color: "#64748b" }}>
-            Season 03 · Round 1
+          <div className="flex items-center gap-4">
+            {connected && (
+              <button
+                onClick={() => setUseWallet((v) => !v)}
+                className={`text-xs px-4 py-2 rounded-lg font-bold tracking-wider uppercase transition-all ${
+                  useWallet 
+                    ? "bg-gradient-to-r from-bitcoin-orange to-bitcoin-gold text-black" 
+                    : "bg-white/5 text-slate-400 hover:bg-white/10"
+                }`}
+              >
+                {useWallet ? "⚡ MY ORDINALS" : "📦 DEMO FIGHTERS"}
+              </button>
+            )}
+            <div className="text-xs tracking-widest uppercase font-semibold" style={{ color: "#64748b" }}>
+              Season 03 · Round 1
+            </div>
           </div>
-        </div>
 
-        <WalletConnect />
+          <WalletConnect />
+        </div>
       </div>
 
       {/* Title */}
-      <div className="text-center pt-8 pb-4">
+      <div className="text-center pt-10 pb-6 relative z-10">
         <motion.h1
-          initial={{ opacity: 0, y: -16 }}
+          initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-4xl md:text-5xl font-black tracking-widest uppercase"
-          style={{ color: "#f7931a", textShadow: "0 0 30px rgba(247,147,26,0.4)" }}
+          className="text-5xl md:text-6xl font-black tracking-widest uppercase"
+          style={{ 
+            background: "linear-gradient(180deg, #ffb82e 0%, #f7931a 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+            textShadow: "0 0 40px rgba(247, 147, 26, 0.5)",
+          }}
         >
           Choose Your Fighter
         </motion.h1>
-        <p className="text-xs tracking-widest mt-2 uppercase" style={{ color: "#334155" }}>
+        <p className="text-sm tracking-wide mt-3 font-semibold" style={{ color: "#64748b" }}>
           {isWalletMode
-            ? `Showing ${walletInscriptions.length} inscription${walletInscriptions.length !== 1 ? "s" : ""} from your wallet`
+            ? `${walletInscriptions.length} inscription${walletInscriptions.length !== 1 ? "s" : ""} found in your wallet`
             : connected
-            ? "No inscriptions found in wallet — showing demo fighters"
-            : "Connect your wallet to use your own Ordinals"}
+            ? "No inscriptions found — showing demo fighters"
+            : "Connect wallet to use your own Ordinals"}
         </p>
       </div>
 
-      {/* On mobile: grid on top, panel below. On md+: side by side */}
-      <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
+      {/* Main layout */}
+      <div className="flex flex-col lg:flex-row flex-1 overflow-hidden relative z-10">
         {/* Fighter grid */}
-        <div className="flex-1 p-4 md:p-6 overflow-y-auto min-h-0">
-
-          {/* DB fighters loading */}
-          {loadingFighters && (
-            <div className="flex flex-col items-center justify-center py-20 gap-4">
-              <div
-                className="w-10 h-10 rounded-full border-2 border-transparent spin-slow"
-                style={{ borderTopColor: "#f7931a" }}
-              />
-              <p className="text-xs uppercase tracking-widest" style={{ color: "#475569" }}>
-                Loading fighters...
+        <div className="flex-1 p-6 overflow-y-auto min-h-0">
+          {/* Loading state */}
+          {(loadingFighters || loadingInscriptions) && (
+            <div className="flex flex-col items-center justify-center py-32 gap-6">
+              <div className="relative">
+                <div className="spinner" />
+                <div className="absolute inset-0 pulse-ring" style={{ borderColor: "rgba(247, 147, 26, 0.3)" }} />
+              </div>
+              <p className="text-sm uppercase tracking-widest font-bold" style={{ color: "#64748b" }}>
+                {loadingInscriptions ? "Loading your inscriptions..." : "Loading fighters..."}
               </p>
             </div>
           )}
 
-          {/* DB fighters error */}
-          {fightersError && (
-            <div
-              className="mb-4 px-4 py-3 rounded-lg flex items-center gap-3 text-sm"
-              style={{
-                background: "rgba(239,68,68,0.08)",
-                border: "1px solid rgba(239,68,68,0.2)",
-                color: "#fca5a5",
-              }}
+          {/* Error states */}
+          {(fightersError || inscriptionError) && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="glass-card mb-6 px-6 py-4 rounded-xl flex items-center gap-4 border-2"
+              style={{ borderColor: "rgba(239, 68, 68, 0.3)", background: "rgba(239, 68, 68, 0.05)" }}
             >
-              <span>⚠️</span>
-              <span>{fightersError}</span>
-            </div>
-          )}
-
-          {/* Wallet inscriptions loading */}
-          {!loadingFighters && connected && loadingInscriptions && (
-            <div className="flex flex-col items-center justify-center py-20 gap-4">
-              <div
-                className="w-10 h-10 rounded-full border-2 border-transparent spin-slow"
-                style={{ borderTopColor: "#f7931a" }}
-              />
-              <p className="text-xs uppercase tracking-widest" style={{ color: "#475569" }}>
-                Loading your inscriptions...
-              </p>
-            </div>
-          )}
-
-          {/* Error state */}
-          {inscriptionError && (
-            <div
-              className="mb-4 px-4 py-3 rounded-lg flex items-center gap-3 text-sm"
-              style={{
-                background: "rgba(239,68,68,0.08)",
-                border: "1px solid rgba(239,68,68,0.2)",
-                color: "#fca5a5",
-              }}
-            >
-              <span>⚠️</span>
-              <span>{inscriptionError}</span>
-              <button onClick={fetchInscriptions} className="ml-auto text-xs underline cursor-pointer">Retry</button>
-            </div>
+              <span className="text-3xl">⚠️</span>
+              <div className="flex-1">
+                <p className="font-bold text-sm" style={{ color: "#fca5a5" }}>
+                  {fightersError || inscriptionError}
+                </p>
+              </div>
+              {inscriptionError && (
+                <button onClick={fetchInscriptions} className="btn-secondary text-xs px-4 py-2">
+                  Retry
+                </button>
+              )}
+            </motion.div>
           )}
 
           {/* Fighter grid */}
           {!loadingFighters && !loadingInscriptions && (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-w-5xl mx-auto">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 max-w-7xl mx-auto">
               {fighters.map((ord, i) => {
                 const isSelected = selected?.id === ord.id;
                 const rarityColor = RARITY_COLORS[ord.rarity];
                 const ordiscanIns = walletInscriptions.find((ins) => ins.inscription_id === ord.id);
+                
                 return (
                   <motion.div
                     key={ord.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.05 }}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: i * 0.04, type: "spring", stiffness: 120 }}
                     onClick={() => setSelected(ord)}
                     onMouseEnter={() => setHovering(ord)}
                     onMouseLeave={() => setHovering(null)}
-                    className="relative cursor-pointer rounded-lg overflow-hidden card-hover"
-                    style={{
-                      background: "#0d0d14",
-                      border: `1px solid ${isSelected ? ord.glowColor : "rgba(255,255,255,0.06)"}`,
-                      boxShadow: isSelected
-                        ? `0 0 20px ${ord.glowColor}44, 0 0 40px ${ord.glowColor}22`
-                        : "none",
-                    }}
+                    className={`fighter-card cursor-pointer relative group ${isSelected ? "selected" : ""} ${ord.rarity === "Legendary" ? "legendary" : ""}`}
                   >
                     {/* Rarity stripe */}
-                    <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: rarityColor }} />
+                    <div 
+                      className="absolute top-0 left-0 right-0 h-1 z-10"
+                      style={{ background: rarityColor }}
+                    />
 
+                    {/* Card glow */}
                     {isSelected && (
                       <div
-                        className="absolute inset-0 pointer-events-none"
-                        style={{ background: `radial-gradient(ellipse at center, ${ord.glowColor}15, transparent 70%)` }}
+                        className="absolute inset-0 pointer-events-none z-0"
+                        style={{ 
+                          background: `radial-gradient(ellipse at center, ${ord.glowColor}25, transparent 70%)`,
+                        }}
                       />
                     )}
 
                     {/* Fighter visual */}
                     <div
-                      className="relative flex items-center justify-center py-6 overflow-hidden"
-                      style={{ background: `linear-gradient(135deg, ${ord.glowColor}10, transparent)` }}
+                      className="relative flex items-center justify-center py-8 overflow-hidden"
+                      style={{ background: `linear-gradient(135deg, ${ord.glowColor}15, transparent)` }}
                     >
                       {isWalletMode && ordiscanIns ? (
                         <InscriptionPreview
@@ -289,45 +277,49 @@ export default function SelectPage() {
                           floating={isSelected}
                         />
                       ) : (
-                        <span className={`text-6xl ${isSelected ? "float-anim" : ""}`}>{ord.emoji}</span>
+                        <span className={`text-7xl ${isSelected ? "float-gentle" : ""}`}>{ord.emoji}</span>
                       )}
+                      
+                      {/* Holographic shine */}
+                      <div className="holo-shine absolute inset-0" />
                     </div>
 
                     {/* Info */}
-                    <div className="p-3 pt-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-black tracking-wide truncate max-w-[80%]" style={{ color: "#e2e8f0" }}>
-                          {ord.name}
+                    <div className="p-4 relative z-10">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-black tracking-wide truncate" style={{ color: "#e8eef7" }}>
+                          {ord.name.replace("Inscription #", "#")}
                         </span>
-                        <span className="text-[9px] flex-shrink-0">{ELEMENT_ICONS[ord.element]}</span>
+                        <span className="text-xl flex-shrink-0">{ELEMENT_ICONS[ord.element]}</span>
                       </div>
-                      <div className="text-[9px] mb-2" style={{ color: "#334155" }}>
-                        #{ord.inscriptionNumber.toLocaleString()}
-                      </div>
-                      <div
-                        className="text-[9px] px-1.5 py-0.5 rounded inline-block mb-2"
+                      
+                      <div 
+                        className="type-badge inline-block mb-3"
                         style={{
-                          background: `${rarityColor}22`,
-                          color: rarityColor,
-                          border: `1px solid ${rarityColor}44`,
+                          background: `linear-gradient(135deg, ${rarityColor}, ${rarityColor}aa)`,
+                          color: ord.rarity === "Legendary" ? "#000" : "#fff",
                         }}
                       >
                         {ord.rarity}
                       </div>
-                      <div className="space-y-1">
+                      
+                      <div className="space-y-1.5">
                         <StatBar label="ATK" value={ord.atk} color={ord.glowColor} />
                         <StatBar label="DEF" value={ord.def} color={ord.glowColor} />
                         <StatBar label="SPD" value={ord.spd} color={ord.glowColor} />
                       </div>
                     </div>
 
+                    {/* Selection checkmark */}
                     {isSelected && (
-                      <div
-                        className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center text-[10px]"
-                        style={{ background: ord.glowColor, color: "#000" }}
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-sm font-black z-20"
+                        style={{ background: ord.glowColor, color: "#000", boxShadow: `0 0 20px ${ord.glowColor}` }}
                       >
                         ✓
-                      </div>
+                      </motion.div>
                     )}
                   </motion.div>
                 );
@@ -335,14 +327,14 @@ export default function SelectPage() {
             </div>
           )}
 
-          {/* No wallet fighters + not loading */}
+          {/* No fighters fallback */}
           {connected && !loadingInscriptions && !inscriptionError && walletInscriptions.length === 0 && useWallet && (
-            <div className="text-center py-10">
-              <p className="text-sm" style={{ color: "#475569" }}>No Ordinals found in this wallet.</p>
+            <div className="text-center py-20">
+              <div className="text-6xl mb-4">🔍</div>
+              <p className="text-lg font-bold mb-2" style={{ color: "#64748b" }}>No Ordinals found in this wallet</p>
               <button
                 onClick={() => setUseWallet(false)}
-                className="mt-3 text-xs underline cursor-pointer"
-                style={{ color: "#f7931a" }}
+                className="btn-secondary mt-4"
               >
                 Use demo fighters instead
               </button>
@@ -350,25 +342,26 @@ export default function SelectPage() {
           )}
         </div>
 
-        {/* Side panel — full width below grid on mobile, w-72 on md+ */}
+        {/* Side preview panel */}
         <AnimatePresence>
           {preview && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="w-full md:w-72 flex-shrink-0 border-t md:border-t-0 md:border-l flex flex-col overflow-y-auto"
-              style={{ borderColor: "rgba(247,147,26,0.1)", background: "rgba(0,0,0,0.4)", maxHeight: "55vh", /* mobile cap */ }}
+              initial={{ x: 400, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 400, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 120, damping: 20 }}
+              className="w-full lg:w-96 flex-shrink-0 border-t lg:border-t-0 lg:border-l glass-card overflow-y-auto"
+              style={{ maxHeight: "50vh", minHeight: "50vh" }}
             >
-              <div className="p-5 flex flex-col gap-4 flex-1">
+              <div className="p-6 flex flex-col gap-5">
                 {/* Fighter display */}
                 <div
-                  className="relative rounded-lg flex items-center justify-center overflow-hidden"
+                  className="relative rounded-2xl flex items-center justify-center overflow-hidden border-2"
                   style={{
-                    height: 180,
-                    background: `linear-gradient(135deg, ${preview.glowColor}18, transparent)`,
-                    border: `1px solid ${preview.glowColor}33`,
+                    height: 220,
+                    background: `linear-gradient(135deg, ${preview.glowColor}20, transparent)`,
+                    borderColor: `${preview.glowColor}50`,
+                    boxShadow: `0 0 30px ${preview.glowColor}30`,
                   }}
                 >
                   {isWalletMode ? (
@@ -379,80 +372,74 @@ export default function SelectPage() {
                       size="large"
                     />
                   ) : (
-                    <span className="text-8xl float-anim">{preview.emoji}</span>
+                    <span className="text-9xl float-gentle">{preview.emoji}</span>
                   )}
-                  <div
-                    className="absolute inset-0 rounded-lg"
-                    style={{ boxShadow: `inset 0 0 30px ${preview.glowColor}22` }}
-                  />
+                  <div className="holo-shine absolute inset-0" />
                 </div>
 
                 {/* Details */}
                 <div>
-                  <h2 className="text-xl font-black" style={{ color: "#e2e8f0" }}>{preview.name}</h2>
-                  <p className="text-xs" style={{ color: "#475569" }}>
+                  <h2 className="text-2xl font-black mb-1" style={{ color: "#e8eef7" }}>{preview.name}</h2>
+                  <p className="text-sm font-semibold mb-3" style={{ color: "#64748b" }}>
                     Inscription #{preview.inscriptionNumber.toLocaleString()}
                   </p>
-                  <div className="flex gap-2 mt-2">
+                  <div className="flex gap-3">
                     <span
-                      className="text-[10px] px-2 py-0.5 rounded"
+                      className="type-badge"
                       style={{
-                        background: `${RARITY_COLORS[preview.rarity]}22`,
-                        color: RARITY_COLORS[preview.rarity],
-                        border: `1px solid ${RARITY_COLORS[preview.rarity]}44`,
+                        background: `linear-gradient(135deg, ${RARITY_COLORS[preview.rarity]}, ${RARITY_COLORS[preview.rarity]}aa)`,
+                        color: preview.rarity === "Legendary" ? "#000" : "#fff",
                       }}
                     >
                       {preview.rarity}
                     </span>
-                    <span
-                      className="text-[10px] px-2 py-0.5 rounded capitalize"
-                      style={{ background: "#1e293b", color: "#64748b" }}
-                    >
+                    <span className="type-badge bg-slate-800 text-slate-300">
                       {ELEMENT_ICONS[preview.element]} {preview.element}
                     </span>
                   </div>
                 </div>
 
                 {/* Stats */}
-                <div className="space-y-2">
-                  <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: "#334155" }}>Stats</div>
-                  <StatBar label="HP" value={preview.hp} color="#22c55e" />
-                  <StatBar label="ATK" value={preview.atk} color={preview.glowColor} />
-                  <StatBar label="DEF" value={preview.def} color={preview.glowColor} />
-                  <StatBar label="SPD" value={preview.spd} color={preview.glowColor} />
+                <div>
+                  <div className="text-xs uppercase tracking-widest mb-3 font-bold" style={{ color: "#64748b" }}>
+                    Combat Stats
+                  </div>
+                  <div className="space-y-2.5">
+                    <StatBar label="HP" value={preview.hp} color="#22c55e" />
+                    <StatBar label="ATK" value={preview.atk} color={preview.glowColor} />
+                    <StatBar label="DEF" value={preview.def} color={preview.glowColor} />
+                    <StatBar label="SPD" value={preview.spd} color={preview.glowColor} />
+                  </div>
                 </div>
 
-                {/* Special */}
+                {/* Special move */}
                 <div
-                  className="rounded-lg p-3"
+                  className="glass-card rounded-2xl p-5 border-2"
                   style={{
-                    background: `${preview.glowColor}0d`,
-                    border: `1px solid ${preview.glowColor}22`,
+                    borderColor: `${preview.glowColor}30`,
+                    background: `linear-gradient(135deg, ${preview.glowColor}10, transparent)`,
                   }}
                 >
-                  <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: "#475569" }}>Special Move</div>
-                  <div className="text-sm font-bold" style={{ color: preview.glowColor }}>⚡ {preview.special}</div>
-                  <div className="text-xs mt-0.5" style={{ color: "#64748b" }}>{preview.specialDesc}</div>
+                  <div className="text-xs uppercase tracking-widest mb-2 font-bold" style={{ color: "#64748b" }}>
+                    Special Move
+                  </div>
+                  <div className="text-lg font-black mb-1" style={{ color: preview.glowColor }}>
+                    ⚡ {preview.special}
+                  </div>
+                  <div className="text-sm" style={{ color: "#94a3b8" }}>{preview.specialDesc}</div>
                 </div>
 
-                <div className="flex-1" />
-
-                {/* Actions */}
+                {/* Action button */}
                 {selected && selected.id === preview.id ? (
                   <motion.button
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    whileTap={{ scale: 0.96 }}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={handleLock}
                     disabled={locked}
-                    className="w-full py-4 font-black text-sm tracking-widest uppercase cursor-pointer transition-all"
+                    className={`btn-primary w-full ${locked ? "opacity-50 cursor-not-allowed" : ""}`}
                     style={{
-                      background: locked
-                        ? "#1e293b"
-                        : `linear-gradient(135deg, ${preview.glowColor}, ${preview.glowColor}99)`,
-                      color: locked ? "#475569" : "#000",
-                      clipPath: "polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%)",
-                      boxShadow: locked ? "none" : `0 0 20px ${preview.glowColor}44`,
+                      clipPath: "polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)",
                     }}
                   >
                     {locked ? "ENTERING ARENA..." : "⚔️ GO TO BATTLE"}
@@ -460,15 +447,9 @@ export default function SelectPage() {
                 ) : (
                   <button
                     onClick={() => setSelected(preview)}
-                    className="w-full py-3 font-bold text-xs tracking-widest uppercase cursor-pointer transition-opacity hover:opacity-80"
-                    style={{
-                      background: "rgba(247,147,26,0.08)",
-                      color: "#f7931a",
-                      border: "1px solid rgba(247,147,26,0.2)",
-                      borderRadius: 4,
-                    }}
+                    className="btn-secondary w-full"
                   >
-                    SELECT THIS FIGHTER
+                    SELECT FIGHTER
                   </button>
                 )}
               </div>
@@ -480,7 +461,6 @@ export default function SelectPage() {
   );
 }
 
-// Renders inscription image from Ordiscan or fallback placeholder
 function InscriptionPreview({
   inscription,
   glowColor,
@@ -494,18 +474,18 @@ function InscriptionPreview({
 }) {
   const [imgError, setImgError] = useState(false);
 
-  if (!inscription) return <span className="text-5xl opacity-30">🖼️</span>;
+  if (!inscription) return <span className="text-6xl opacity-40">🖼️</span>;
 
   const isImage = inscription.content_type?.startsWith("image/");
-  const px = size === "large" ? "w-36 h-36" : "w-20 h-20";
+  const px = size === "large" ? "w-40 h-40" : "w-24 h-24";
 
   if (!imgError && isImage) {
     return (
       <img
         src={inscription.content_url}
         alt={`Inscription #${inscription.inscription_number}`}
-        className={`${px} object-contain rounded ${floating ? "float-anim" : ""}`}
-        style={{ filter: `drop-shadow(0 0 12px ${glowColor})` }}
+        className={`${px} object-contain rounded-xl ${floating ? "float-gentle" : ""}`}
+        style={{ filter: `drop-shadow(0 0 20px ${glowColor})` }}
         loading="lazy"
         decoding="async"
         onError={() => setImgError(true)}
@@ -513,18 +493,17 @@ function InscriptionPreview({
     );
   }
 
-  // Non-image or error: show inscription number block
   return (
     <div
-      className={`${px} rounded-lg flex flex-col items-center justify-center ${floating ? "float-anim" : ""}`}
+      className={`${px} rounded-2xl flex flex-col items-center justify-center border-2 ${floating ? "float-gentle" : ""}`}
       style={{
-        background: `linear-gradient(135deg, ${glowColor}22, transparent)`,
-        border: `1px solid ${glowColor}44`,
-        filter: `drop-shadow(0 0 12px ${glowColor}44)`,
+        background: `linear-gradient(135deg, ${glowColor}30, transparent)`,
+        borderColor: `${glowColor}50`,
+        filter: `drop-shadow(0 0 20px ${glowColor}50)`,
       }}
     >
-      <span className="text-[10px] uppercase tracking-widest" style={{ color: glowColor }}>ORD</span>
-      <span className="font-black text-sm" style={{ color: "#e2e8f0" }}>
+      <span className="text-xs uppercase tracking-widest font-bold" style={{ color: glowColor }}>ORD</span>
+      <span className="font-black text-lg" style={{ color: "#e8eef7" }}>
         #{inscription.inscription_number.toLocaleString()}
       </span>
     </div>
