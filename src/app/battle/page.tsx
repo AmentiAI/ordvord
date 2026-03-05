@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback, type JSX } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { type Ordinal } from "@/lib/mockData";
@@ -20,15 +20,10 @@ interface DamageNum {
 
 function calcDamage(attacker: Ordinal, defender: Ordinal, moveType: "strike" | "power" | "special") {
   const base =
-    moveType === "strike"
-      ? [15, 25]
-      : moveType === "power"
-      ? [28, 42]
-      : [35, 55]; // special
-
+    moveType === "strike" ? [15, 25] :
+    moveType === "power"  ? [28, 42] : [35, 55];
   const raw = base[0] + Math.floor(Math.random() * (base[1] - base[0]));
-  const dmg = Math.max(1, Math.round((raw * attacker.atk) / 100 - (defender.def * 0.3)));
-  return dmg;
+  return Math.max(1, Math.round((raw * attacker.atk) / 100 - defender.def * 0.3));
 }
 
 export default function BattlePage() {
@@ -57,28 +52,22 @@ export default function BattlePage() {
     if (!mf || !opp) { router.push("/select"); return; }
     const f: Ordinal = JSON.parse(mf);
     const o: Ordinal = JSON.parse(opp);
-    setMyFighter(f);
-    setOpponent(o);
-    setMyHp(f.hp);
-    setOppHp(o.hp);
-    setMyMaxHp(f.hp);
-    setOppMaxHp(o.hp);
-    addLog(`⚔️ BATTLE BEGINS! ${f.name} vs ${o.name}`, "system");
-    addLog(`Round 1 — Your turn`, "system");
+    setMyFighter(f); setOpponent(o);
+    setMyHp(f.hp); setOppHp(o.hp);
+    setMyMaxHp(f.hp); setOppMaxHp(o.hp);
+    addLog(`BATTLE BEGINS — ${f.name} vs ${o.name}`, "system");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const addLog = (text: string, type: BattleLog["type"]) => {
-    setLog((l) => [...l, { id: logId.current++, text, type }]);
-    setTimeout(() => {
-      logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: "smooth" });
-    }, 50);
+    setLog((l) => [...l.slice(-20), { id: logId.current++, text, type }]);
+    setTimeout(() => logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: "smooth" }), 30);
   };
 
   const spawnDamage = (value: number, isPlayer: boolean) => {
     const id = dmgId.current++;
-    setDamages((d) => [...d, { id, value, x: 30 + Math.random() * 40, isPlayer }]);
-    setTimeout(() => setDamages((d) => d.filter((x) => x.id !== id)), 1100);
+    setDamages((d) => [...d, { id, value, x: 25 + Math.random() * 50, isPlayer }]);
+    setTimeout(() => setDamages((d) => d.filter((x) => x.id !== id)), 1000);
   };
 
   const endBattle = useCallback((w: "player" | "enemy", finalRound: number) => {
@@ -86,7 +75,6 @@ export default function BattlePage() {
     setPhase("ended");
     sessionStorage.setItem("winner", w);
 
-    // Save battle to DB (fire and forget)
     const mf = JSON.parse(sessionStorage.getItem("myFighter") || "{}");
     const opp = JSON.parse(sessionStorage.getItem("opponent") || "{}");
     fetch("/api/battles", {
@@ -102,31 +90,28 @@ export default function BattlePage() {
       }),
     }).catch(() => {});
 
-    setTimeout(() => router.push("/result"), 2500);
+    setTimeout(() => router.push("/result"), 2800);
   }, [router]);
 
   const enemyTurn = useCallback((currentMyHp: number, f: Ordinal, o: Ordinal) => {
     setTimeout(() => {
-      const moveRoll = Math.random();
-      const moveName = moveRoll < 0.5 ? "Strike" : moveRoll < 0.8 ? "Power Hit" : "Special";
-      const dmg = calcDamage(o, f, moveRoll < 0.5 ? "strike" : moveRoll < 0.8 ? "power" : "special");
+      const r = Math.random();
+      const moveName = r < 0.5 ? "Strike" : r < 0.8 ? "Power Hit" : "Special";
+      const dmg = calcDamage(o, f, r < 0.5 ? "strike" : r < 0.8 ? "power" : "special");
       const newHp = Math.max(0, currentMyHp - dmg);
-
       setMyHp(newHp);
       setShakePlayer(true);
       setTimeout(() => setShakePlayer(false), 500);
       spawnDamage(dmg, true);
-      addLog(`💀 ${o.name} uses ${moveName}! You take ${dmg} damage.`, "enemy");
-
+      addLog(`${o.name} uses ${moveName} — ${dmg} damage`, "enemy");
       if (newHp <= 0) {
-        addLog(`☠️ ${f.name} was defeated!`, "system");
+        addLog(`${f.name} defeated`, "system");
         endBattle("enemy", round);
       } else {
         setRound((r) => r + 1);
         setPhase("player_turn");
-        addLog(`Your turn — Round ${round + 1}`, "system");
       }
-    }, 800);
+    }, 900);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [endBattle, round]);
 
@@ -134,180 +119,167 @@ export default function BattlePage() {
     if (phase !== "player_turn" || !myFighter || !opponent) return;
     if (type === "special" && specialUsed) return;
     setPhase("enemy_turn");
-
     if (type === "special") setSpecialUsed(true);
-
-    const moveName =
-      type === "strike" ? "Strike" : type === "power" ? "Power Hit" : myFighter.special;
+    const moveName = type === "strike" ? "Strike" : type === "power" ? "Power Hit" : myFighter.special;
     const dmg = calcDamage(myFighter, opponent, type);
     const newOppHp = Math.max(0, oppHp - dmg);
-
     setOppHp(newOppHp);
     setShakeEnemy(true);
     setTimeout(() => setShakeEnemy(false), 500);
     spawnDamage(dmg, false);
-    addLog(`⚔️ You use ${moveName}! Enemy takes ${dmg} damage.`, "player");
-
+    addLog(`You use ${moveName} — ${dmg} damage`, "player");
     if (newOppHp <= 0) {
-      addLog(`🏆 ${opponent.name} was defeated!`, "system");
+      addLog(`${opponent.name} defeated`, "system");
       endBattle("player", round);
       return;
     }
-
-    addLog(`${opponent.name} is preparing...`, "system");
     enemyTurn(myHp, myFighter, opponent);
   };
 
   const handleDefend = () => {
     if (phase !== "player_turn" || !myFighter || !opponent) return;
     setPhase("enemy_turn");
-    const heal = Math.floor(myMaxHp * 0.08);
-    setMyHp((h) => Math.min(myMaxHp, h + heal));
-    addLog(`🛡️ You defend and recover ${heal} HP.`, "player");
-    enemyTurn(Math.min(myMaxHp, myHp + heal), myFighter, opponent);
+    const heal = Math.floor(myMaxHp * 0.1);
+    const newHp = Math.min(myMaxHp, myHp + heal);
+    setMyHp(newHp);
+    addLog(`You defend — recover ${heal} HP`, "player");
+    enemyTurn(newHp, myFighter, opponent);
   };
 
   if (!myFighter || !opponent) return null;
 
-  const myHpPct = (myHp / myMaxHp) * 100;
-  const oppHpPct = (oppHp / oppMaxHp) * 100;
-  const myHpColor = myHpPct > 50 ? "#22c55e" : myHpPct > 25 ? "#f59e0b" : "#ef4444";
-  const oppHpColor = oppHpPct > 50 ? "#22c55e" : oppHpPct > 25 ? "#f59e0b" : "#ef4444";
+  const myPct  = (myHp / myMaxHp) * 100;
+  const oppPct = (oppHp / oppMaxHp) * 100;
+  const myColor  = myPct  > 50 ? "#22c55e" : myPct  > 25 ? "#f59e0b" : "#ef4444";
+  const oppColor = oppPct > 50 ? "#22c55e" : oppPct > 25 ? "#f59e0b" : "#ef4444";
+
+  const canAct = phase === "player_turn";
 
   return (
-    <div
-      className="min-h-screen flex flex-col"
-      style={{ background: "#050508" }}
-    >
-      {/* Top HUD */}
+    <div className="min-h-screen flex flex-col" style={{ background: "#050508" }}>
+
+      {/* ── TOP HUD ── */}
       <div
-        className="flex items-center justify-between px-4 py-3 border-b"
-        style={{ borderColor: "rgba(247,147,26,0.15)", background: "rgba(0,0,0,0.7)" }}
+        className="flex items-center gap-4 px-4 md:px-6 py-3 border-b shrink-0"
+        style={{ background: "rgba(5,5,8,0.95)", borderColor: "rgba(247,147,26,0.12)" }}
       >
-        {/* Player HP */}
-        <div className="flex flex-col gap-1 flex-1">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-black" style={{ color: "#e2e8f0" }}>{myFighter.name}</span>
-            <span style={{ color: myHpColor }}>{myHp}/{myMaxHp}</span>
+        {/* Player side */}
+        <div className="flex-1 flex flex-col gap-1.5">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-black tracking-wide" style={{ fontFamily: "var(--font-orbitron)", color: "#e2e8f0" }}>
+              {myFighter.name}
+            </span>
+            <span className="font-bold tabular-nums" style={{ color: myColor }}>{myHp}/{myMaxHp}</span>
           </div>
-          <div className="h-3 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
-            <motion.div
-              className="h-full rounded-full"
-              style={{ background: `linear-gradient(90deg, ${myHpColor}, ${myHpColor}99)` }}
-              animate={{ width: `${myHpPct}%` }}
-              transition={{ duration: 0.5 }}
+          <div className="h-4 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
+            <div
+              className="h-full rounded-full hp-bar"
+              style={{ width: `${myPct}%`, background: `linear-gradient(90deg, ${myColor}, ${myColor}bb)` }}
             />
           </div>
-          <div className="text-[9px] uppercase tracking-widest" style={{ color: "#334155" }}>YOUR HP</div>
+          <div className="text-[10px] uppercase tracking-widest" style={{ color: "#334155" }}>YOUR HP</div>
         </div>
 
-        {/* Round indicator */}
-        <div className="flex flex-col items-center px-6">
+        {/* Round */}
+        <div className="flex flex-col items-center gap-1 shrink-0 px-2 md:px-4">
           <div className="text-[10px] uppercase tracking-widest" style={{ color: "#334155" }}>Round</div>
-          <div className="text-2xl font-black" style={{ color: "#f7931a" }}>{round}</div>
+          <div className="text-3xl md:text-4xl font-black" style={{ fontFamily: "var(--font-orbitron)", color: "#f7931a" }}>
+            {round}
+          </div>
           <div
-            className="text-[10px] px-2 py-0.5 rounded font-bold uppercase"
+            className="text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wide"
             style={{
-              background: phase === "enemy_turn" ? "rgba(239,68,68,0.2)" : "rgba(34,197,94,0.2)",
-              color: phase === "enemy_turn" ? "#ef4444" : "#22c55e",
+              background: phase === "enemy_turn" ? "rgba(239,68,68,0.15)" : canAct ? "rgba(34,197,94,0.15)" : "rgba(247,147,26,0.1)",
+              color: phase === "enemy_turn" ? "#ef4444" : canAct ? "#22c55e" : "#f7931a",
             }}
           >
             {phase === "ended" ? "ENDED" : phase === "enemy_turn" ? "ENEMY" : "YOUR TURN"}
           </div>
         </div>
 
-        {/* Enemy HP */}
-        <div className="flex flex-col gap-1 flex-1">
-          <div className="flex items-center justify-between text-xs">
-            <span style={{ color: oppHpColor }}>{oppHp}/{oppMaxHp}</span>
-            <span className="font-black" style={{ color: "#e2e8f0" }}>{opponent.name}</span>
+        {/* Enemy side */}
+        <div className="flex-1 flex flex-col gap-1.5">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-bold tabular-nums" style={{ color: oppColor }}>{oppHp}/{oppMaxHp}</span>
+            <span className="font-black tracking-wide" style={{ fontFamily: "var(--font-orbitron)", color: "#e2e8f0" }}>
+              {opponent.name}
+            </span>
           </div>
-          <div className="h-3 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
-            <motion.div
-              className="h-full rounded-full ml-auto"
-              style={{ background: `linear-gradient(270deg, ${oppHpColor}, ${oppHpColor}99)` }}
-              animate={{ width: `${oppHpPct}%` }}
-              transition={{ duration: 0.5 }}
+          <div className="h-4 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
+            <div
+              className="h-full rounded-full hp-bar ml-auto"
+              style={{ width: `${oppPct}%`, background: `linear-gradient(270deg, ${oppColor}, ${oppColor}bb)` }}
             />
           </div>
-          <div className="text-[9px] uppercase tracking-widest text-right" style={{ color: "#334155" }}>ENEMY HP</div>
+          <div className="text-[10px] uppercase tracking-widest text-right" style={{ color: "#334155" }}>ENEMY HP</div>
         </div>
       </div>
 
-      {/* Arena */}
-      <div className="flex-1 relative flex items-center justify-between px-8 py-6 overflow-hidden">
-        {/* Arena glow floor */}
+      {/* ── ARENA ── */}
+      <div className="flex-1 relative flex items-center justify-between px-6 md:px-16 py-4 overflow-hidden min-h-0">
+        {/* Floor line */}
         <div
-          className="absolute bottom-0 left-0 right-0 h-24 pointer-events-none"
-          style={{
-            background:
-              "linear-gradient(0deg, rgba(247,147,26,0.06) 0%, transparent 100%)",
-          }}
+          className="absolute bottom-0 left-0 right-0 h-32 pointer-events-none"
+          style={{ background: "linear-gradient(0deg, rgba(247,147,26,0.05) 0%, transparent 100%)" }}
         />
         <div
           className="absolute bottom-0 left-0 right-0 h-px pointer-events-none"
-          style={{ background: "linear-gradient(90deg, transparent, #f7931a44, transparent)" }}
+          style={{ background: "linear-gradient(90deg, transparent, rgba(247,147,26,0.3), transparent)" }}
         />
 
-        {/* Damage floats */}
+        {/* Damage numbers */}
         {damages.map((d) => (
-          <motion.div
+          <div
             key={d.id}
-            className="absolute damage-float font-black text-2xl pointer-events-none"
+            className="damage-float absolute font-black pointer-events-none select-none"
             style={{
               left: `${d.x}%`,
-              top: "30%",
+              top: "35%",
+              fontSize: "2.5rem",
               color: d.isPlayer ? "#ef4444" : "#22c55e",
-              textShadow: `0 0 10px ${d.isPlayer ? "#ef4444" : "#22c55e"}`,
+              textShadow: `0 0 20px ${d.isPlayer ? "#ef4444" : "#22c55e"}`,
               zIndex: 50,
+              fontFamily: "var(--font-orbitron)",
             }}
           >
             -{d.value}
-          </motion.div>
+          </div>
         ))}
 
         {/* My fighter */}
         <div className="flex flex-col items-center gap-4">
-          <ArenaFighter
-            fighter={myFighter}
-            shake={shakePlayer}
-            flip={false}
-          />
+          <ArenaFighter fighter={myFighter} shake={shakePlayer} flip={false} />
           <div
-            className="text-[10px] px-3 py-1 rounded font-bold tracking-widest uppercase"
+            className="text-xs px-4 py-1.5 rounded font-black tracking-wider uppercase"
             style={{
-              background: `${myFighter.glowColor}20`,
+              background: `${myFighter.glowColor}18`,
               color: myFighter.glowColor,
-              border: `1px solid ${myFighter.glowColor}40`,
+              border: `1px solid ${myFighter.glowColor}35`,
+              fontFamily: "var(--font-orbitron)",
             }}
           >
             {myFighter.name}
           </div>
         </div>
 
-        {/* VS center */}
-        <motion.div
-          className="text-3xl font-black opacity-40 select-none"
-          animate={{ opacity: [0.3, 0.6, 0.3] }}
-          transition={{ duration: 2, repeat: Infinity }}
-          style={{ color: "#f7931a" }}
+        {/* VS */}
+        <div
+          className="text-4xl md:text-5xl font-black select-none opacity-20"
+          style={{ fontFamily: "var(--font-orbitron)", color: "#f7931a" }}
         >
           VS
-        </motion.div>
+        </div>
 
-        {/* Opponent fighter */}
+        {/* Opponent */}
         <div className="flex flex-col items-center gap-4">
-          <ArenaFighter
-            fighter={opponent}
-            shake={shakeEnemy}
-            flip={true}
-          />
+          <ArenaFighter fighter={opponent} shake={shakeEnemy} flip={true} />
           <div
-            className="text-[10px] px-3 py-1 rounded font-bold tracking-widest uppercase"
+            className="text-xs px-4 py-1.5 rounded font-black tracking-wider uppercase"
             style={{
-              background: `${opponent.glowColor}20`,
+              background: `${opponent.glowColor}18`,
               color: opponent.glowColor,
-              border: `1px solid ${opponent.glowColor}40`,
+              border: `1px solid ${opponent.glowColor}35`,
+              fontFamily: "var(--font-orbitron)",
             }}
           >
             {opponent.name}
@@ -315,33 +287,29 @@ export default function BattlePage() {
         </div>
       </div>
 
-      {/* Bottom — Log + Actions */}
+      {/* ── BOTTOM: LOG + ACTIONS ── */}
       <div
-        className="border-t"
-        style={{ borderColor: "rgba(247,147,26,0.1)", background: "rgba(0,0,0,0.7)" }}
+        className="border-t shrink-0"
+        style={{ borderColor: "rgba(247,147,26,0.1)", background: "rgba(3,3,6,0.98)" }}
       >
-        {/* Mobile: log above, buttons below. sm+: side by side */}
         <div className="flex flex-col sm:flex-row">
           {/* Battle log */}
           <div
             ref={logRef}
-            className="flex-1 overflow-y-auto p-3 space-y-1 border-b sm:border-b-0 sm:border-r text-xs"
-            style={{ borderColor: "rgba(247,147,26,0.1)", height: 80 }}
+            className="flex-1 overflow-y-auto p-3 md:p-4 space-y-1.5 border-b sm:border-b-0 sm:border-r"
+            style={{ borderColor: "rgba(247,147,26,0.08)", height: 110 }}
           >
-            <AnimatePresence>
+            <AnimatePresence initial={false}>
               {log.map((entry) => (
                 <motion.div
                   key={entry.id}
-                  initial={{ opacity: 0, x: -8 }}
+                  initial={{ opacity: 0, x: -6 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.2 }}
+                  transition={{ duration: 0.15 }}
+                  className="text-xs md:text-sm"
                   style={{
-                    color:
-                      entry.type === "player"
-                        ? "#86efac"
-                        : entry.type === "enemy"
-                        ? "#fca5a5"
-                        : "#64748b",
+                    color: entry.type === "player" ? "#86efac" : entry.type === "enemy" ? "#fca5a5" : "#475569",
+                    fontFamily: "var(--font-body)",
                   }}
                 >
                   {entry.text}
@@ -350,17 +318,17 @@ export default function BattlePage() {
             </AnimatePresence>
           </div>
 
-          {/* Action buttons — full width on mobile, fixed on sm+ */}
-          <div className="w-full sm:w-64 flex-shrink-0 grid grid-cols-2 gap-1.5 sm:gap-2 p-2 sm:p-3">
+          {/* Action buttons */}
+          <div className="w-full sm:w-72 md:w-80 shrink-0 grid grid-cols-2 gap-2 p-3 md:p-4">
             {[
-              { label: "⚔️ Strike", desc: "15–25 DMG", action: () => handleAttack("strike"), disabled: phase !== "player_turn" },
-              { label: "💥 Power Hit", desc: "28–42 DMG", action: () => handleAttack("power"), disabled: phase !== "player_turn" },
-              { label: "🛡️ Defend", desc: "+8% HP", action: handleDefend, disabled: phase !== "player_turn" },
+              { label: "STRIKE",    sub: "15–25 DMG", action: () => handleAttack("strike"),  disabled: !canAct, special: false },
+              { label: "POWER HIT", sub: "28–42 DMG", action: () => handleAttack("power"),   disabled: !canAct, special: false },
+              { label: "DEFEND",    sub: "+10% HP",   action: handleDefend,                  disabled: !canAct, special: false },
               {
-                label: `⚡ ${myFighter.special}`,
-                desc: specialUsed ? "USED" : "Special",
+                label: myFighter.special.toUpperCase(),
+                sub: specialUsed ? "USED" : "SPECIAL",
                 action: () => handleAttack("special"),
-                disabled: phase !== "player_turn" || specialUsed,
+                disabled: !canAct || specialUsed,
                 special: true,
               },
             ].map((btn, i) => (
@@ -368,55 +336,65 @@ export default function BattlePage() {
                 key={i}
                 onClick={btn.action}
                 disabled={btn.disabled}
-                className="flex flex-col items-center justify-center rounded-lg p-2 cursor-pointer transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+                className="flex flex-col items-center justify-center rounded-xl py-4 cursor-pointer transition-all duration-100 active:scale-95 disabled:opacity-25 disabled:cursor-not-allowed"
                 style={{
                   background: btn.disabled
-                    ? "rgba(255,255,255,0.03)"
+                    ? "rgba(255,255,255,0.02)"
                     : btn.special
-                    ? `linear-gradient(135deg, ${myFighter.glowColor}33, ${myFighter.glowColor}11)`
-                    : "rgba(247,147,26,0.1)",
+                    ? `linear-gradient(135deg, ${myFighter.glowColor}25, ${myFighter.glowColor}10)`
+                    : "rgba(247,147,26,0.08)",
                   border: btn.special
-                    ? `1px solid ${myFighter.glowColor}44`
+                    ? `1px solid ${myFighter.glowColor}50`
                     : "1px solid rgba(247,147,26,0.15)",
-                  boxShadow: btn.disabled ? "none" : btn.special ? `0 0 12px ${myFighter.glowColor}22` : "none",
+                  boxShadow: btn.disabled || !btn.special ? "none" : `0 0 20px ${myFighter.glowColor}20`,
                 }}
               >
-                <span className="text-sm font-bold" style={{ color: btn.disabled ? "#334155" : btn.special ? myFighter.glowColor : "#f7931a" }}>
+                <span
+                  className="text-sm font-black tracking-wider"
+                  style={{
+                    fontFamily: "var(--font-orbitron)",
+                    color: btn.disabled ? "#1e293b" : btn.special ? myFighter.glowColor : "#f7931a",
+                  }}
+                >
                   {btn.label}
                 </span>
-                <span className="text-[9px]" style={{ color: "#334155" }}>{btn.desc}</span>
+                <span className="text-[10px] mt-0.5 tracking-widest uppercase" style={{ color: "#334155" }}>
+                  {btn.sub}
+                </span>
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      {/* End overlay */}
+      {/* ── BATTLE END OVERLAY ── */}
       <AnimatePresence>
         {phase === "ended" && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="absolute inset-0 flex items-center justify-center"
-            style={{ background: "rgba(0,0,0,0.85)", zIndex: 100 }}
+            style={{ background: "rgba(0,0,0,0.88)", zIndex: 100 }}
           >
             <motion.div
-              initial={{ scale: 0.5, rotate: -10 }}
+              initial={{ scale: 0.4, rotate: -8 }}
               animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: "spring", stiffness: 300 }}
+              transition={{ type: "spring", stiffness: 250, damping: 20 }}
               className="text-center"
             >
               <div
-                className="text-6xl font-black tracking-widest"
+                className="font-black tracking-widest"
                 style={{
+                  fontFamily: "var(--font-orbitron)",
+                  fontSize: "clamp(3rem, 12vw, 6rem)",
                   color: winner === "player" ? "#f7931a" : "#ef4444",
-                  textShadow: `0 0 40px ${winner === "player" ? "#f7931a" : "#ef4444"}`,
+                  textShadow: `0 0 60px ${winner === "player" ? "#f7931a" : "#ef4444"}`,
                 }}
               >
-                {winner === "player" ? "VICTORY!" : "DEFEATED!"}
+                {winner === "player" ? "VICTORY" : "DEFEATED"}
               </div>
-              <div className="text-sm mt-2" style={{ color: "#64748b" }}>
-                Redirecting to results...
+              <div className="text-sm mt-3 tracking-widest uppercase" style={{ color: "#475569" }}>
+                Loading results...
               </div>
             </motion.div>
           </motion.div>
@@ -426,28 +404,21 @@ export default function BattlePage() {
   );
 }
 
-function ArenaFighter({
-  fighter,
-  shake,
-  flip,
-}: {
-  fighter: import("@/lib/mockData").Ordinal;
-  shake: boolean;
-  flip: boolean;
-}): JSX.Element {
+function ArenaFighter({ fighter, shake, flip }: { fighter: Ordinal; shake: boolean; flip: boolean }) {
   const [imgError, setImgError] = useState(false);
   const isImage = fighter.contentType?.startsWith("image/");
   const glowColor = shake ? "#ef4444" : fighter.glowColor;
+  const cls = shake ? "shake-anim" : "float-anim";
 
-  let visual: JSX.Element;
   if (fighter.contentUrl && isImage && !imgError) {
-    visual = (
+    return (
       <img
         src={fighter.contentUrl}
         alt={fighter.name}
-        className={`w-32 h-32 md:w-40 md:h-40 object-contain rounded-lg select-none ${shake ? "shake-anim" : "float-anim"}`}
+        className={`object-contain rounded-xl select-none ${cls}`}
         style={{
-          filter: `drop-shadow(0 0 20px ${glowColor})`,
+          width: 160, height: 160,
+          filter: `drop-shadow(0 0 30px ${glowColor})`,
           transform: flip ? "scaleX(-1)" : undefined,
         }}
         loading="eager"
@@ -455,19 +426,19 @@ function ArenaFighter({
         onError={() => setImgError(true)}
       />
     );
-  } else {
-    visual = (
-      <div
-        className={`text-8xl md:text-9xl select-none ${shake ? "shake-anim" : "float-anim"}`}
-        style={{
-          filter: `drop-shadow(0 0 20px ${glowColor})`,
-          transform: flip ? "scaleX(-1)" : undefined,
-        }}
-      >
-        {fighter.emoji}
-      </div>
-    );
   }
 
-  return visual;
+  return (
+    <div
+      className={`select-none ${cls}`}
+      style={{
+        fontSize: "clamp(7rem, 14vw, 10rem)",
+        filter: `drop-shadow(0 0 30px ${glowColor})`,
+        transform: flip ? "scaleX(-1)" : undefined,
+        lineHeight: 1,
+      }}
+    >
+      {fighter.emoji}
+    </div>
+  );
 }
