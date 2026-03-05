@@ -9,7 +9,6 @@ import { fetchWalletInscriptions, type OrdiscanInscription } from "@/lib/ordisca
 import StatBar from "@/components/StatBar";
 import WalletConnect from "@/components/WalletConnect";
 
-// Derive deterministic stats from inscription number
 function deriveStats(inscriptionNumber: number): Pick<Ordinal, "hp" | "atk" | "def" | "spd" | "rarity" | "element" | "special" | "specialDesc" | "glowColor"> {
   const seed = inscriptionNumber;
   const hp  = 70 + (seed % 50);
@@ -57,13 +56,13 @@ export default function SelectPage() {
   const router = useRouter();
   const { connected, address } = useLaserEyes();
 
-  const [selected, setSelected]   = useState<Ordinal | null>(null);
-  const [hovering, setHovering]   = useState<Ordinal | null>(null);
-  const [locked, setLocked]       = useState(false);
+  const [selected, setSelected] = useState<Ordinal | null>(null);
+  const [hovering, setHovering] = useState<Ordinal | null>(null);
+  const [locked, setLocked] = useState(false);
 
-  const [inscriptions, setInscriptions]       = useState<OrdiscanInscription[]>([]);
-  const [loadingInscriptions, setLoading]     = useState(false);
-  const [inscriptionError, setError]          = useState<string | null>(null);
+  const [inscriptions, setInscriptions] = useState<OrdiscanInscription[]>([]);
+  const [loadingInscriptions, setLoading] = useState(false);
+  const [inscriptionError, setError] = useState<string | null>(null);
 
   const preview  = hovering ?? selected;
   const fighters = inscriptions.map(inscriptionToOrdinal);
@@ -100,56 +99,63 @@ export default function SelectPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "#050508" }}>
+    <div className="min-h-screen flex flex-col relative overflow-hidden" style={{ background: "var(--bg-void)" }}>
+      {/* Animated background */}
+      <div className="absolute inset-0 opacity-20 pointer-events-none">
+        <div
+          className="absolute inset-0"
+          style={{
+            background: "radial-gradient(circle at 20% 30%, rgba(247, 147, 26, 0.15), transparent 50%), radial-gradient(circle at 80% 70%, rgba(168, 85, 247, 0.15), transparent 50%)",
+            animation: "bgPulse 10s ease-in-out infinite",
+          }}
+        />
+      </div>
 
       {/* Header */}
-      <div
-        className="flex items-center justify-between px-6 py-4 border-b shrink-0"
-        style={{ borderColor: "rgba(247,147,26,0.12)", background: "rgba(3,3,6,0.95)" }}
-      >
-        <button
-          onClick={() => router.push("/")}
-          className="text-xs tracking-widest uppercase cursor-pointer transition-opacity hover:opacity-60 font-bold"
-          style={{ fontFamily: "var(--font-orbitron)", color: "#475569" }}
-        >
-          ← BACK
-        </button>
-        <div className="text-xs tracking-widest uppercase" style={{ fontFamily: "var(--font-orbitron)", color: "#334155" }}>
-          Season 03
+      <div className="glass-card border-b z-10 relative">
+        <div className="flex items-center justify-between px-6 py-4">
+          <button onClick={() => router.push("/")} className="btn-secondary text-xs px-4 py-2">
+            ← BACK
+          </button>
+          <div className="text-xs tracking-widest uppercase font-semibold" style={{ color: "#64748b" }}>
+            Season 03
+          </div>
+          <WalletConnect />
         </div>
-        <WalletConnect />
       </div>
 
       {/* Title */}
-      <div className="text-center pt-8 pb-5 px-4 shrink-0">
+      <div className="text-center pt-10 pb-6 relative z-10">
         <motion.h1
-          initial={{ opacity: 0, y: -12 }}
+          initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-4xl md:text-6xl font-black tracking-widest uppercase"
+          className="text-5xl md:text-6xl font-black tracking-widest uppercase"
           style={{
             fontFamily: "var(--font-orbitron)",
-            color: "#f7931a",
-            textShadow: "0 0 40px rgba(247,147,26,0.45)",
+            background: "linear-gradient(180deg, #ffb82e 0%, #f7931a 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
           }}
         >
           Choose Your Fighter
         </motion.h1>
-        <p className="text-xs tracking-widest mt-3 uppercase" style={{ color: "#334155" }}>
+        <p className="text-sm tracking-wide mt-3 font-semibold" style={{ color: "#64748b" }}>
           {!connected
             ? "Connect your wallet to load your Ordinals"
             : loadingInscriptions
             ? "Loading your inscriptions..."
-            : inscriptions.length > 0
-            ? `${inscriptions.length} inscription${inscriptions.length !== 1 ? "s" : ""} in your wallet`
+            : fighters.length > 0
+            ? `${fighters.length} inscription${fighters.length !== 1 ? "s" : ""} found in your wallet`
             : "No Ordinals found in this wallet"}
         </p>
       </div>
 
       {/* Body */}
-      <div className="flex flex-col md:flex-row flex-1 overflow-hidden min-h-0">
+      <div className="flex flex-col lg:flex-row flex-1 overflow-hidden relative z-10">
 
         {/* Left — grid or states */}
-        <div className="flex-1 p-4 md:p-6 overflow-y-auto min-h-0">
+        <div className="flex-1 p-6 overflow-y-auto min-h-0">
 
           {/* NOT CONNECTED */}
           {!connected && (
@@ -159,16 +165,12 @@ export default function SelectPage() {
               className="flex flex-col items-center justify-center h-full py-20 gap-8 text-center"
             >
               <div
-                className="w-24 h-24 rounded-2xl flex items-center justify-center text-4xl"
-                style={{ background: "rgba(247,147,26,0.08)", border: "1px solid rgba(247,147,26,0.2)" }}
+                className="w-24 h-24 rounded-2xl flex items-center justify-center text-4xl glass-card"
               >
                 ₿
               </div>
               <div>
-                <div
-                  className="text-2xl md:text-3xl font-black mb-3"
-                  style={{ fontFamily: "var(--font-orbitron)", color: "#e2e8f0" }}
-                >
+                <div className="text-2xl md:text-3xl font-black mb-3" style={{ color: "#e2e8f0" }}>
                   Wallet Required
                 </div>
                 <p className="text-sm max-w-xs mx-auto leading-relaxed" style={{ color: "#475569" }}>
@@ -182,44 +184,38 @@ export default function SelectPage() {
           {/* LOADING */}
           {connected && loadingInscriptions && (
             <div className="flex flex-col items-center justify-center h-full py-20 gap-5">
-              <div
-                className="w-12 h-12 rounded-full border-2 border-transparent spin-slow"
-                style={{ borderTopColor: "#f7931a" }}
-              />
-              <p className="text-sm tracking-widest uppercase" style={{ color: "#475569" }}>
+              <div className="spinner" />
+              <p className="text-sm tracking-widest uppercase font-semibold" style={{ color: "#64748b" }}>
                 Loading your inscriptions...
               </p>
             </div>
           )}
 
           {/* ERROR */}
-          {connected && inscriptionError && (
-            <div className="flex flex-col items-center justify-center h-full py-20 gap-5 text-center">
+          {connected && !loadingInscriptions && inscriptionError && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col items-center justify-center h-full py-20 gap-5 text-center"
+            >
               <div className="text-4xl">⚠️</div>
               <div className="text-sm max-w-xs" style={{ color: "#fca5a5" }}>{inscriptionError}</div>
-              <button
-                onClick={fetchInscriptions}
-                className="px-6 py-3 text-xs font-bold tracking-widest uppercase cursor-pointer rounded"
-                style={{ background: "rgba(247,147,26,0.1)", color: "#f7931a", border: "1px solid rgba(247,147,26,0.2)" }}
-              >
+              <button onClick={fetchInscriptions} className="btn-secondary">
                 RETRY
               </button>
-            </div>
+            </motion.div>
           )}
 
           {/* NO ORDINALS */}
-          {connected && !loadingInscriptions && !inscriptionError && inscriptions.length === 0 && (
+          {connected && !loadingInscriptions && !inscriptionError && fighters.length === 0 && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="flex flex-col items-center justify-center h-full py-20 gap-6 text-center"
             >
-              <div className="text-5xl opacity-20">🖼️</div>
+              <div className="text-6xl opacity-20">🖼️</div>
               <div>
-                <div
-                  className="text-xl font-black mb-2"
-                  style={{ fontFamily: "var(--font-orbitron)", color: "#334155" }}
-                >
+                <div className="text-xl font-black mb-2" style={{ color: "#334155" }}>
                   No Ordinals Found
                 </div>
                 <p className="text-sm" style={{ color: "#1e293b" }}>
@@ -231,40 +227,38 @@ export default function SelectPage() {
 
           {/* FIGHTER GRID */}
           {connected && !loadingInscriptions && fighters.length > 0 && (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5 max-w-6xl mx-auto">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 max-w-7xl mx-auto">
               {fighters.map((ord, i) => {
                 const isSelected  = selected?.id === ord.id;
                 const rarityColor = RARITY_COLORS[ord.rarity];
                 const ins = inscriptions.find((x) => x.inscription_id === ord.id);
+
                 return (
                   <motion.div
                     key={ord.id}
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.04 }}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: i * 0.04, type: "spring", stiffness: 120 }}
                     onClick={() => setSelected(ord)}
                     onMouseEnter={() => setHovering(ord)}
                     onMouseLeave={() => setHovering(null)}
-                    className="relative cursor-pointer rounded-xl overflow-hidden card-hover"
-                    style={{
-                      background: "#0d0d14",
-                      border: `1px solid ${isSelected ? ord.glowColor : "rgba(255,255,255,0.07)"}`,
-                      boxShadow: isSelected ? `0 0 30px ${ord.glowColor}44, 0 0 60px ${ord.glowColor}18` : "none",
-                    }}
+                    className={`fighter-card cursor-pointer relative group ${isSelected ? "selected" : ""} ${ord.rarity === "Legendary" ? "legendary" : ""}`}
                   >
-                    <div className="absolute top-0 left-0 right-0 h-1" style={{ background: rarityColor }} />
+                    {/* Rarity stripe */}
+                    <div className="absolute top-0 left-0 right-0 h-1 z-10" style={{ background: rarityColor }} />
 
+                    {/* Card glow */}
                     {isSelected && (
                       <div
-                        className="absolute inset-0 pointer-events-none"
-                        style={{ background: `radial-gradient(ellipse at center, ${ord.glowColor}12, transparent 70%)` }}
+                        className="absolute inset-0 pointer-events-none z-0"
+                        style={{ background: `radial-gradient(ellipse at center, ${ord.glowColor}25, transparent 70%)` }}
                       />
                     )}
 
                     {/* Visual */}
                     <div
-                      className="relative flex items-center justify-center py-8 overflow-hidden"
-                      style={{ background: `linear-gradient(135deg, ${ord.glowColor}12, transparent)` }}
+                      className="relative flex items-center justify-center py-8 overflow-hidden holo-shine"
+                      style={{ background: `linear-gradient(135deg, ${ord.glowColor}15, transparent)` }}
                     >
                       <InscriptionPreview
                         inscription={ins}
@@ -274,23 +268,21 @@ export default function SelectPage() {
                     </div>
 
                     {/* Info */}
-                    <div className="px-4 pb-4 pt-2">
-                      <div className="flex items-start justify-between gap-1 mb-1.5">
-                        <span
-                          className="text-sm font-black leading-tight"
-                          style={{ fontFamily: "var(--font-orbitron)", color: "#e2e8f0" }}
-                        >
-                          {ord.name}
+                    <div className="p-4 relative z-10">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-black tracking-wide truncate" style={{ color: "#e8eef7" }}>
+                          {ord.name.replace("Inscription #", "#")}
                         </span>
-                        <span className="text-base shrink-0">{ELEMENT_ICONS[ord.element]}</span>
+                        <span className="text-xl flex-shrink-0">{ELEMENT_ICONS[ord.element]}</span>
                       </div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <span
-                          className="text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider"
-                          style={{ background: `${rarityColor}18`, color: rarityColor, border: `1px solid ${rarityColor}40` }}
-                        >
-                          {ord.rarity}
-                        </span>
+                      <div
+                        className="type-badge inline-block mb-3"
+                        style={{
+                          background: `linear-gradient(135deg, ${rarityColor}, ${rarityColor}aa)`,
+                          color: ord.rarity === "Legendary" ? "#000" : "#fff",
+                        }}
+                      >
+                        {ord.rarity}
                       </div>
                       <div className="space-y-1.5">
                         <StatBar label="ATK" value={ord.atk} color={ord.glowColor} />
@@ -299,13 +291,16 @@ export default function SelectPage() {
                       </div>
                     </div>
 
+                    {/* Selection checkmark */}
                     {isSelected && (
-                      <div
-                        className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black"
-                        style={{ background: ord.glowColor, color: "#000" }}
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-sm font-black z-20"
+                        style={{ background: ord.glowColor, color: "#000", boxShadow: `0 0 20px ${ord.glowColor}` }}
                       >
                         ✓
-                      </div>
+                      </motion.div>
                     )}
                   </motion.div>
                 );
@@ -318,22 +313,23 @@ export default function SelectPage() {
         <AnimatePresence>
           {preview && (
             <motion.div
-              initial={{ opacity: 0, x: 16 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 16 }}
-              transition={{ duration: 0.18 }}
-              className="w-full md:w-80 lg:w-96 shrink-0 border-t md:border-t-0 md:border-l flex flex-col overflow-y-auto"
-              style={{ borderColor: "rgba(247,147,26,0.1)", background: "rgba(2,2,6,0.8)" }}
+              initial={{ x: 400, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 400, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 120, damping: 20 }}
+              className="w-full lg:w-96 flex-shrink-0 border-t lg:border-t-0 lg:border-l glass-card overflow-y-auto"
+              style={{ maxHeight: "100vh" }}
             >
-              <div className="p-5 md:p-6 flex flex-col gap-5 flex-1">
+              <div className="p-6 flex flex-col gap-5">
 
                 {/* Fighter preview */}
                 <div
-                  className="relative rounded-2xl flex items-center justify-center overflow-hidden"
+                  className="relative rounded-2xl flex items-center justify-center overflow-hidden border-2 holo-shine"
                   style={{
                     height: 220,
-                    background: `linear-gradient(135deg, ${preview.glowColor}15, #08080f)`,
-                    border: `1px solid ${preview.glowColor}30`,
+                    background: `linear-gradient(135deg, ${preview.glowColor}20, transparent)`,
+                    borderColor: `${preview.glowColor}50`,
+                    boxShadow: `0 0 30px ${preview.glowColor}30`,
                   }}
                 >
                   <InscriptionPreview
@@ -342,90 +338,75 @@ export default function SelectPage() {
                     floating
                     size="large"
                   />
-                  <div className="absolute inset-0 rounded-2xl" style={{ boxShadow: `inset 0 0 50px ${preview.glowColor}12` }} />
                 </div>
 
                 {/* Name + meta */}
                 <div>
-                  <h2
-                    className="text-2xl font-black leading-tight"
-                    style={{ fontFamily: "var(--font-orbitron)", color: "#f1f5f9" }}
-                  >
-                    {preview.name}
-                  </h2>
-                  <div className="flex gap-2 mt-3">
+                  <h2 className="text-2xl font-black mb-1" style={{ color: "#e8eef7" }}>{preview.name}</h2>
+                  <p className="text-sm font-semibold mb-3" style={{ color: "#64748b" }}>
+                    Inscription #{preview.inscriptionNumber.toLocaleString()}
+                  </p>
+                  <div className="flex gap-3 flex-wrap">
                     <span
-                      className="text-xs px-3 py-1 rounded-full font-bold uppercase tracking-wider"
+                      className="type-badge"
                       style={{
-                        background: `${RARITY_COLORS[preview.rarity]}18`,
-                        color: RARITY_COLORS[preview.rarity],
-                        border: `1px solid ${RARITY_COLORS[preview.rarity]}40`,
+                        background: `linear-gradient(135deg, ${RARITY_COLORS[preview.rarity]}, ${RARITY_COLORS[preview.rarity]}aa)`,
+                        color: preview.rarity === "Legendary" ? "#000" : "#fff",
                       }}
                     >
                       {preview.rarity}
                     </span>
-                    <span className="text-xs px-3 py-1 rounded-full capitalize" style={{ background: "#1a1a26", color: "#64748b" }}>
+                    <span className="type-badge" style={{ background: "rgba(255,255,255,0.06)", color: "#94a3b8" }}>
                       {ELEMENT_ICONS[preview.element]} {preview.element}
                     </span>
                   </div>
                 </div>
 
                 {/* Stats */}
-                <div className="space-y-2.5">
-                  <div className="text-[11px] uppercase tracking-widest" style={{ color: "#334155" }}>Stats</div>
-                  <StatBar label="HP"  value={preview.hp}  color="#22c55e" />
-                  <StatBar label="ATK" value={preview.atk} color={preview.glowColor} />
-                  <StatBar label="DEF" value={preview.def} color={preview.glowColor} />
-                  <StatBar label="SPD" value={preview.spd} color={preview.glowColor} />
-                </div>
-
-                {/* Special */}
-                <div
-                  className="rounded-xl p-4"
-                  style={{ background: `${preview.glowColor}0e`, border: `1px solid ${preview.glowColor}25` }}
-                >
-                  <div className="text-[11px] uppercase tracking-widest mb-2" style={{ color: "#475569" }}>Special Move</div>
-                  <div
-                    className="text-base font-black"
-                    style={{ fontFamily: "var(--font-orbitron)", color: preview.glowColor }}
-                  >
-                    {preview.special}
+                <div>
+                  <div className="text-xs uppercase tracking-widest mb-3 font-bold" style={{ color: "#64748b" }}>
+                    Combat Stats
                   </div>
-                  <div className="text-sm mt-1" style={{ color: "#64748b" }}>{preview.specialDesc}</div>
+                  <div className="space-y-2.5">
+                    <StatBar label="HP"  value={preview.hp}  color="#22c55e" />
+                    <StatBar label="ATK" value={preview.atk} color={preview.glowColor} />
+                    <StatBar label="DEF" value={preview.def} color={preview.glowColor} />
+                    <StatBar label="SPD" value={preview.spd} color={preview.glowColor} />
+                  </div>
                 </div>
 
-                <div className="flex-1" />
+                {/* Special move */}
+                <div
+                  className="glass-card rounded-2xl p-5 border-2"
+                  style={{
+                    borderColor: `${preview.glowColor}30`,
+                    background: `linear-gradient(135deg, ${preview.glowColor}10, transparent)`,
+                  }}
+                >
+                  <div className="text-xs uppercase tracking-widest mb-2 font-bold" style={{ color: "#64748b" }}>
+                    Special Move
+                  </div>
+                  <div className="text-lg font-black mb-1" style={{ color: preview.glowColor }}>
+                    ⚡ {preview.special}
+                  </div>
+                  <div className="text-sm" style={{ color: "#94a3b8" }}>{preview.specialDesc}</div>
+                </div>
 
                 {/* Action */}
                 {selected?.id === preview.id ? (
                   <motion.button
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    whileTap={{ scale: 0.97 }}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={handleLock}
                     disabled={locked}
-                    className="w-full py-5 font-black text-base tracking-widest uppercase cursor-pointer transition-all disabled:opacity-40"
-                    style={{
-                      fontFamily: "var(--font-orbitron)",
-                      background: locked ? "#1a1a26" : `linear-gradient(135deg, ${preview.glowColor}, ${preview.glowColor}cc)`,
-                      color: locked ? "#475569" : "#000",
-                      clipPath: "polygon(10px 0%, 100% 0%, calc(100% - 10px) 100%, 0% 100%)",
-                      boxShadow: locked ? "none" : `0 0 30px ${preview.glowColor}55, 0 0 60px ${preview.glowColor}22`,
-                    }}
+                    className={`btn-primary w-full ${locked ? "opacity-50 cursor-not-allowed" : ""}`}
+                    style={{ clipPath: "polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)" }}
                   >
                     {locked ? "ENTERING ARENA..." : "GO TO BATTLE"}
                   </motion.button>
                 ) : (
-                  <button
-                    onClick={() => setSelected(preview)}
-                    className="w-full py-4 font-black text-sm tracking-widest uppercase cursor-pointer transition-all active:scale-95 hover:opacity-80 rounded-lg"
-                    style={{
-                      fontFamily: "var(--font-orbitron)",
-                      background: "rgba(247,147,26,0.07)",
-                      color: "#f7931a",
-                      border: "1px solid rgba(247,147,26,0.25)",
-                    }}
-                  >
+                  <button onClick={() => setSelected(preview)} className="btn-secondary w-full">
                     SELECT FIGHTER
                   </button>
                 )}
@@ -452,23 +433,19 @@ function InscriptionPreview({
   const [imgError, setImgError] = useState(false);
 
   if (!inscription) {
-    return (
-      <div className="flex flex-col items-center gap-2 opacity-30">
-        <span className="text-4xl">🖼️</span>
-      </div>
-    );
+    return <span className="text-4xl opacity-30">🖼️</span>;
   }
 
   const isImage = inscription.content_type?.startsWith("image/");
-  const dim = size === "large" ? "w-36 h-36" : "w-24 h-24";
+  const dim = size === "large" ? "w-40 h-40" : "w-24 h-24";
 
   if (!imgError && isImage) {
     return (
       <img
         src={inscription.content_url}
         alt={`Inscription #${inscription.inscription_number}`}
-        className={`${dim} object-contain rounded-xl ${floating ? "float-anim" : ""}`}
-        style={{ filter: `drop-shadow(0 0 16px ${glowColor})` }}
+        className={`${dim} object-contain rounded-xl ${floating ? "float-gentle" : ""}`}
+        style={{ filter: `drop-shadow(0 0 20px ${glowColor})` }}
         loading="lazy"
         decoding="async"
         onError={() => setImgError(true)}
@@ -478,15 +455,15 @@ function InscriptionPreview({
 
   return (
     <div
-      className={`${dim} rounded-xl flex flex-col items-center justify-center gap-1 ${floating ? "float-anim" : ""}`}
+      className={`${dim} rounded-2xl flex flex-col items-center justify-center border-2 ${floating ? "float-gentle" : ""}`}
       style={{
-        background: `linear-gradient(135deg, ${glowColor}20, transparent)`,
-        border: `1px solid ${glowColor}40`,
-        filter: `drop-shadow(0 0 12px ${glowColor}44)`,
+        background: `linear-gradient(135deg, ${glowColor}30, transparent)`,
+        borderColor: `${glowColor}50`,
+        filter: `drop-shadow(0 0 20px ${glowColor}50)`,
       }}
     >
-      <span className="text-[10px] uppercase tracking-widest font-bold" style={{ color: glowColor }}>ORD</span>
-      <span className="font-black text-sm" style={{ color: "#e2e8f0" }}>
+      <span className="text-xs uppercase tracking-widest font-bold" style={{ color: glowColor }}>ORD</span>
+      <span className="font-black text-lg" style={{ color: "#e8eef7" }}>
         #{inscription.inscription_number.toLocaleString()}
       </span>
     </div>

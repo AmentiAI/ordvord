@@ -2,19 +2,31 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useLaserEyes } from "@omnisat/lasereyes";
 import WalletConnect from "@/components/WalletConnect";
 
+const PARTICLES = Array.from({ length: 24 }, (_, i) => ({
+  id: i,
+  x: Math.random() * 100,
+  y: Math.random() * 100,
+  size: Math.random() * 2 + 1.5,
+  duration: Math.random() * 3 + 4,
+  delay: Math.random() * 5,
+  tx: (Math.random() - 0.5) * 60,
+  ty: (Math.random() - 0.5) * 80 - 30,
+}));
+
 const TICKER = [
-  "BLOCK #881,337 MINED",
-  "SATOSHI_REAPER #469842 WON 14 BATTLES",
-  "SAT_DRAGON #77777 IS UNDEFEATED",
-  "NEW ORDINAL BATTLE STARTING",
-  "ORD_APE #214670 ENTERED THE ARENA",
-  "TOURNAMENT SEASON 3 BEGINS",
+  { icon: "⚡", text: "BLOCK #881,337 MINED", color: "#ffd93d" },
+  { icon: "🔥", text: "SATOSHI_REAPER #469842 WON 14 BATTLES", color: "#ff6b2c" },
+  { icon: "💀", text: "SAT_DRAGON #77777 IS UNDEFEATED", color: "#7d5ba6" },
+  { icon: "⚔️", text: "NEW ORDINAL BATTLE STARTING", color: "#f7931a" },
+  { icon: "🦍", text: "ORD_APE #214670 ENTERED THE ARENA", color: "#3b9dff" },
+  { icon: "🏆", text: "TOURNAMENT SEASON 3 BEGINS", color: "#d4af37" },
 ];
 
+const FIGHTER_EMOJIS = ["💀", "🔥", "🦍", "⚡", "❄️", "👾", "🧙", "🐉", "🌟", "⚔️", "💎", "🎭"];
 
 export default function Home() {
   const router = useRouter();
@@ -22,6 +34,7 @@ export default function Home() {
   const [tickerIdx, setTickerIdx] = useState(0);
   const [battles, setBattles] = useState(0);
   const [entered, setEntered] = useState(false);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     const t = setInterval(() => setTickerIdx((i) => (i + 1) % TICKER.length), 3500);
@@ -37,107 +50,173 @@ export default function Home() {
     return () => clearInterval(t);
   }, []);
 
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => setMousePos({ x: e.clientX, y: e.clientY });
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, []);
+
   const handleEnter = () => {
     setEntered(true);
     setTimeout(() => router.push("/select"), 500);
   };
 
+  const currentTicker = TICKER[tickerIdx];
+
   return (
-    <div className="relative min-h-screen flex flex-col overflow-hidden" style={{ background: "#050508" }}>
-      {/* Wallet — top right */}
-      <div className="absolute top-5 right-5 z-20">
+    <div className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden">
+      {/* Wallet Connect */}
+      <div className="absolute top-6 right-6 z-20">
         <WalletConnect />
       </div>
 
-      {/* Deep background radials */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div style={{
-          position: "absolute", inset: 0,
-          background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(247,147,26,0.09) 0%, transparent 65%)",
-        }} />
-        <div style={{
-          position: "absolute", inset: 0,
-          background: "radial-gradient(ellipse 50% 40% at 50% 100%, rgba(168,85,247,0.05) 0%, transparent 60%)",
-        }} />
-      </div>
+      {/* Animated mesh gradient */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-40"
+        style={{
+          background: `radial-gradient(circle at ${mousePos.x}px ${mousePos.y}px, rgba(247, 147, 26, 0.15), transparent 50%)`,
+          transition: "background 0.3s ease",
+        }}
+      />
 
-      {/* Grid */}
-      <div className="absolute inset-0 opacity-[0.07]" style={{
-        backgroundImage: "linear-gradient(rgba(247,147,26,1) 1px, transparent 1px), linear-gradient(90deg, rgba(247,147,26,1) 1px, transparent 1px)",
-        backgroundSize: "80px 80px",
-      }} />
+      {/* Grid overlay */}
+      <div
+        className="absolute inset-0 opacity-10"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(247,147,26,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(247,147,26,0.3) 1px, transparent 1px)",
+          backgroundSize: "80px 80px",
+        }}
+      />
 
-      {/* Live ticker */}
-      <div className="relative z-10 flex justify-center pt-6 md:pt-8">
+      {/* Floating particles */}
+      {PARTICLES.map((p) => (
+        <div
+          key={p.id}
+          className="particle absolute rounded-full pointer-events-none"
+          style={{
+            left: `${p.x}%`,
+            top: `${p.y}%`,
+            width: p.size,
+            height: p.size,
+            background: `radial-gradient(circle, rgba(255, 184, 46, 0.8), rgba(247, 147, 26, 0.2))`,
+            boxShadow: `0 0 ${p.size * 4}px rgba(247, 147, 26, 0.6)`,
+            "--duration": `${p.duration}s`,
+            "--delay": `${p.delay}s`,
+            "--tx": `${p.tx}px`,
+            "--ty": `${p.ty}px`,
+          } as React.CSSProperties}
+        />
+      ))}
+
+      {/* Radial glow center */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: "radial-gradient(ellipse 50% 40% at 50% 50%, rgba(247,147,26,0.12) 0%, transparent 70%)",
+        }}
+      />
+
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: entered ? 0 : 1 }}
+        transition={{ duration: 0.5 }}
+        className="relative z-10 flex flex-col items-center gap-8 md:gap-10 px-4 text-center"
+      >
+        {/* Live ticker */}
         <motion.div
-          initial={{ y: -20, opacity: 0 }}
+          initial={{ y: -30, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.1 }}
-          className="flex items-center gap-3 px-5 py-2.5 rounded-full text-xs tracking-widest uppercase"
-          style={{ background: "rgba(247,147,26,0.08)", border: "1px solid rgba(247,147,26,0.2)", color: "#fb923c" }}
+          transition={{ delay: 0.2, type: "spring", stiffness: 120 }}
+          className="glass-card flex items-center gap-4 px-6 py-3 rounded-full max-w-md overflow-hidden"
         >
-          <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" style={{ boxShadow: "0 0 6px #4ade80" }} />
-          <motion.span
-            key={tickerIdx}
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25 }}
+          <motion.div
+            key={`pulse-${tickerIdx}`}
+            initial={{ scale: 0.8 }}
+            animate={{ scale: 1 }}
+            className="w-3 h-3 rounded-full bg-green-400 flex-shrink-0 relative"
           >
-            LIVE — {TICKER[tickerIdx]}
-          </motion.span>
+            <div className="absolute inset-0 rounded-full bg-green-400 pulse-ring" />
+          </motion.div>
+          <AnimatePresence mode="wait">
+            <motion.span
+              key={`ticker-${tickerIdx}`}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.4 }}
+              className="text-sm font-bold tracking-wide truncate"
+              style={{ color: currentTicker.color }}
+            >
+              {currentTicker.icon} {currentTicker.text}
+            </motion.span>
+          </AnimatePresence>
         </motion.div>
-      </div>
 
-      {/* Hero */}
-      <div className="relative z-10 flex flex-col items-center justify-center flex-1 px-4 text-center gap-6 md:gap-8 py-8">
+        {/* Hero title */}
         <motion.div
           initial={{ scale: 0.85, opacity: 0 }}
-          animate={{ scale: entered ? 1.05 : 1, opacity: entered ? 0 : 1 }}
-          transition={{ delay: 0.2, type: "spring", stiffness: 100, damping: 20 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.3, type: "spring", stiffness: 100 }}
+          className="relative"
         >
           <div
-            className="glitch font-black tracking-tighter leading-none select-none"
+            className="absolute inset-0 blur-3xl opacity-50"
+            style={{ background: "radial-gradient(circle, rgba(247, 147, 26, 0.6), transparent 70%)" }}
+          />
+          <div
+            className="glitch font-black tracking-tighter leading-none relative"
             data-text="ORDVORD"
             style={{
               fontFamily: "var(--font-orbitron)",
-              fontSize: "clamp(5rem, 18vw, 12rem)",
-              color: "#f7931a",
-              textShadow: "0 0 60px rgba(247,147,26,0.7), 0 0 120px rgba(247,147,26,0.3)",
+              fontSize: "clamp(4rem, 15vw, 11rem)",
+              background: "linear-gradient(180deg, #ffb82e 0%, #f7931a 50%, #d97706 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+              filter: "drop-shadow(0 0 40px rgba(247, 147, 26, 0.8)) drop-shadow(0 0 80px rgba(247, 147, 26, 0.4))",
             }}
           >
             ORDVORD
           </div>
-          <div
-            className="tracking-[0.4em] md:tracking-[0.6em] mt-3 uppercase text-sm md:text-base"
-            style={{ fontFamily: "var(--font-orbitron)", color: "#475569", letterSpacing: "0.4em" }}
+          <motion.div
+            className="text-sm md:text-base tracking-[0.4em] md:tracking-[0.5em] mt-4 uppercase font-bold"
+            style={{ color: "#94a3b8", textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)" }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6 }}
           >
             Bitcoin Ordinal Battle Arena
-          </div>
+          </motion.div>
         </motion.div>
 
         {/* Stats */}
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.45 }}
-          className="flex items-center gap-8 md:gap-16"
+          transition={{ delay: 0.7 }}
+          className="flex gap-8 md:gap-12"
         >
           {[
-            { label: "Battles Fought", val: battles.toLocaleString() },
-            { label: "Ordinals Active", val: "8,441" },
-            { label: "Season", val: "03" },
-          ].map((s, i) => (
-            <div key={i} className="flex flex-col items-center">
-              <span
-                className="text-3xl md:text-4xl font-black"
-                style={{ fontFamily: "var(--font-orbitron)", color: "#f7931a" }}
-              >
+            { label: "Battles Fought", val: battles.toLocaleString(), icon: "⚔️", color: "#ff6b2c" },
+            { label: "Ordinals Active", val: "8,441", icon: "🎭", color: "#3b9dff" },
+            { label: "Season", val: "03", icon: "🏆", color: "#d4af37" },
+          ].map((s, idx) => (
+            <motion.div
+              key={s.label}
+              className="glass-card px-6 py-4 rounded-xl text-center hover:scale-105 transition-transform"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8 + idx * 0.1 }}
+            >
+              <div className="text-3xl mb-1">{s.icon}</div>
+              <span className="text-2xl md:text-3xl font-black block" style={{ color: s.color }}>
                 {s.val}
               </span>
-              <span className="text-[10px] md:text-xs uppercase tracking-widest mt-1" style={{ color: "#475569" }}>
+              <span className="text-[10px] md:text-xs uppercase tracking-widest block mt-1" style={{ color: "#64748b" }}>
                 {s.label}
               </span>
-            </div>
+            </motion.div>
           ))}
         </motion.div>
 
@@ -145,84 +224,127 @@ export default function Home() {
         <motion.div
           initial={{ scaleX: 0 }}
           animate={{ scaleX: 1 }}
-          transition={{ delay: 0.55, duration: 0.5 }}
-          className="w-64 md:w-96 h-px"
-          style={{ background: "linear-gradient(90deg, transparent, #f7931a88, transparent)" }}
-        />
+          transition={{ delay: 1, duration: 0.8, ease: "easeInOut" }}
+          className="w-64 md:w-96 h-px relative"
+          style={{ background: "linear-gradient(90deg, transparent, #f7931a 20%, #f7931a 80%, transparent)" }}
+        >
+          <div
+            className="absolute inset-0 blur-md"
+            style={{ background: "linear-gradient(90deg, transparent, #f7931a, transparent)" }}
+          />
+        </motion.div>
 
         {/* CTA */}
         <motion.div
-          initial={{ y: 20, opacity: 0 }}
+          initial={{ y: 30, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.65 }}
-          className="flex flex-col items-center gap-4"
+          transition={{ delay: 1.1, type: "spring", stiffness: 120 }}
+          className="flex flex-col items-center gap-6"
         >
           <button
             onClick={handleEnter}
-            className="relative group px-14 md:px-20 py-5 md:py-6 text-lg md:text-xl font-black tracking-widest uppercase overflow-hidden cursor-pointer transition-transform duration-150 active:scale-95"
-            style={{
-              fontFamily: "var(--font-orbitron)",
-              background: "linear-gradient(135deg, #f7931a, #d4790f)",
-              color: "#000",
-              clipPath: "polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)",
-              boxShadow: "0 0 40px rgba(247,147,26,0.6), 0 0 80px rgba(247,147,26,0.2)",
-            }}
+            className="btn-primary relative group text-lg md:text-xl"
+            style={{ clipPath: "polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)" }}
           >
-            <span className="relative z-10">ENTER ARENA</span>
-            <div className="absolute inset-0 opacity-0 group-hover:opacity-15 transition-opacity duration-200 bg-white" />
+            <span className="relative z-10 flex items-center gap-3">
+              ⚔️ ENTER ARENA
+            </span>
           </button>
 
           {connected && address ? (
-            <p className="text-xs tracking-widest" style={{ color: "#22c55e" }}>
-              WALLET CONNECTED — YOUR ORDINALS LOAD IN SELECTION
-            </p>
+            <motion.div
+              className="glass-card px-6 py-3 rounded-full"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 1.3 }}
+            >
+              <p className="text-sm font-bold tracking-wide" style={{ color: "#22c55e" }}>
+                ✓ WALLET CONNECTED
+              </p>
+              <p className="text-xs mt-1" style={{ color: "#64748b" }}>
+                Your Ordinals will load in selection
+              </p>
+            </motion.div>
           ) : (
-            <p className="text-xs tracking-widest" style={{ color: "#334155" }}>
-              CONNECT WALLET TO BATTLE WITH YOUR OWN ORDINALS
-            </p>
+            <motion.p
+              className="text-xs tracking-widest text-center px-6 max-w-md"
+              style={{ color: "#475569" }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1.3 }}
+            >
+              CONNECT WALLET (TOP RIGHT) TO USE YOUR OWN ORDINALS
+            </motion.p>
           )}
         </motion.div>
 
-        {/* Arena feature pills */}
+        {/* Fighter emoji preview */}
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-          className="flex flex-wrap justify-center gap-3 mt-2"
+          transition={{ delay: 1.4 }}
+          className="flex gap-4 md:gap-6 flex-wrap justify-center max-w-2xl"
         >
-          {[
-            { label: "Real Ordinals Only", sub: "Your inscriptions, your fighters" },
-            { label: "PvP Matchmaking",    sub: "Real opponents, real stakes" },
-            { label: "Both Ordinals Burn", sub: "Winner claims all sats" },
-          ].map((p) => (
-            <div
-              key={p.label}
-              className="flex flex-col items-center px-5 py-3 rounded-xl text-center"
-              style={{ background: "rgba(247,147,26,0.05)", border: "1px solid rgba(247,147,26,0.12)" }}
+          {FIGHTER_EMOJIS.map((e, i) => (
+            <motion.div
+              key={e}
+              className="glass-card w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center cursor-default hover:scale-110 transition-transform"
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 0.7, scale: 1 }}
+              transition={{ delay: 1.5 + i * 0.05 }}
+              whileHover={{ opacity: 1, y: -4 }}
             >
-              <span
-                className="text-sm font-black"
-                style={{ fontFamily: "var(--font-orbitron)", color: "#f7931a" }}
-              >
-                {p.label}
-              </span>
-              <span className="text-[11px] mt-0.5" style={{ color: "#334155" }}>{p.sub}</span>
-            </div>
+              <span className="text-2xl md:text-3xl">{e}</span>
+            </motion.div>
           ))}
         </motion.div>
-      </div>
 
-      {/* Bottom status bar */}
-      <div
-        className="relative z-10 border-t flex items-center justify-center px-4 gap-4 md:gap-8"
-        style={{ height: 36, background: "rgba(0,0,0,0.5)", borderColor: "rgba(247,147,26,0.08)" }}
+        {/* Features grid */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.6 }}
+          className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mt-4"
+        >
+          {[
+            { icon: "🔗", title: "Real Ordinals Only", desc: "Your inscriptions, your fighters" },
+            { icon: "⚔️", title: "PvP Matchmaking", desc: "Real opponents, real stakes" },
+            { icon: "🔥", title: "Both Ordinals Burn", desc: "Winner claims all sats" },
+          ].map((feature, idx) => (
+            <motion.div
+              key={feature.title}
+              className="glass-card p-6 rounded-2xl text-center hover:scale-105 transition-transform"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.7 + idx * 0.1 }}
+            >
+              <div className="text-4xl mb-3">{feature.icon}</div>
+              <h3 className="font-bold text-base mb-2" style={{ color: "#f7931a" }}>
+                {feature.title}
+              </h3>
+              <p className="text-sm" style={{ color: "#94a3b8" }}>
+                {feature.desc}
+              </p>
+            </motion.div>
+          ))}
+        </motion.div>
+      </motion.div>
+
+      {/* Bottom bar */}
+      <motion.div
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 1.8 }}
+        className="absolute bottom-0 left-0 right-0 glass-card border-t flex items-center justify-center px-4 py-3"
       >
-        {["BLOCKCHAIN VERIFIED", "PROVABLY FAIR", "INSCRIPTIONS ON BITCOIN", "ORDVORD V1.0"].map((t, i) => (
-          <span key={i} className="text-[9px] tracking-widest uppercase whitespace-nowrap" style={{ color: "#1e293b" }}>
-            {t}
-          </span>
-        ))}
-      </div>
+        <div className="flex gap-6 text-xs tracking-widest uppercase whitespace-nowrap font-semibold" style={{ color: "#64748b" }}>
+          <span>ORDVORD V1.0</span>
+          <span>•</span>
+          <span>INSCRIPTIONS ON BITCOIN</span>
+          <span>•</span>
+          <span>SEASON 3 LIVE</span>
+        </div>
+      </motion.div>
     </div>
   );
 }
